@@ -21,12 +21,12 @@ else:
 GA = False  # make sure to run the simulation without GA first, to get the initial values for GA simulation
 
 # solves the system of equations for W, Delta, mu (and D if GA is activated) for several electron densities and both s- and d-symmetry
-solve_equations = False
+solve_equations = True
 
 # plot the results (if the results are already there and don't need to be calculated again: switch off solve_equations)
 plot_results = True
 plot_s_id = True  # if True, the results for s_id-symmetry are plotted
-plot_for_poster = True     # plot both, HF and GA results in one plot for comparison
+plot_for_poster = False     # plot both, HF and GA results in one plot for comparison
 
 # If GA is not activated, this option is for calculation of the Energy E for different D from the Gutzwiller Approximation for ONE given electron
 # density and for s- and d-symmetry. solve_equations need to be activated for this.
@@ -37,7 +37,7 @@ if not solve_equations and solve_for_one_density_only_and_check_D:
 
 ############################## Parameters of the model ############################
 
-kBT = 1.0e-5  # temperature
+kBT = 1.0e-3  # temperature
 grid_points = 400  # dimension of grid, has to be an even integer!
 V1 = -2.0   # (constant) potential energy for next neighbour interaction
 N = (grid_points-1)*(grid_points-1)  # total number of grid points
@@ -48,7 +48,7 @@ t = 1.0  # hopping parameter for horizontal and vertical neighbours
 t_diag = 0.0  # hopping parameter for diagonal neighbours, should take values like 0.0, -0.2, -0.4
 
 # U is the potential energy of the interaction of an electron at a site with another electron on the same site
-U = 4.0 # should take values like 4, 8, 12
+U = 0.0 # should take values like 4, 8, 12
 
 
 ############################## Printing the parameters of the model ############################
@@ -69,9 +69,9 @@ if rank == 0 or not parallel_computing:
 
 ############################## Parameters of the simulation ############################
 
-n_el_start, n_el_end = 0.27, 0.33  # range of the densities for which the equations are solved
+n_el_start, n_el_end = 0.01, 1.01  # range of the densities for which the equations are solved
 nod = 40  # number of densities within that range
-symmetries = ['s_id']  # symmetries for which the equations are solved
+symmetries = ['s', 'd', 's_id']  # symmetries for which the equations are solved
 
 # In case that GA is not used, initial values for W, Delta and mu for the FIRST density are required for the Newton method
 if not GA:
