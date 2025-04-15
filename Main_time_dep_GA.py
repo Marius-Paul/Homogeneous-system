@@ -4,7 +4,7 @@ from scipy import optimize
 
 
 sqrt_N = 100
-kBT = 1.0e-3  # temperature
+kBT = 1.0e-4  # temperature
 N = sqrt_N**2  # dimension of grid, has to be an even integer!
 V1 = -2.0   # (constant) potential energy for next neighbour interaction
 c = 1.0/(8.0*N)  # a constant which is often needed in the calculations
@@ -12,12 +12,14 @@ a = 1.0  # grid constant
 t = 1.0  # hopping parameter for horizontal and vertical neighbours
 t_diag = 0.0  # hopping parameter for diagonal neighbours, should take values like 0.0, -0.2, -0.4
 
+s_d_sid_transition_accuracy = 1.0e-4
+
 # U is the potential energy of the interaction of an electron at a site with another electron on the same site
 #U = 0.0 # should take values like 4, 8, 12
 
 #n_el = 0.6
-U_array = linspace(0.0, 4.0, 10)
-n_el_array = linspace(0.75, 0.95, 1)
+U_array = linspace(0.0, 8.0, 20)
+n_el_array = linspace(0.05, 0.95, 50)
 
 phase_diagramm_HF = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
 phase_diagramm_time_dependent_GA = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
@@ -111,6 +113,14 @@ def calc_W(Ak, Ek, Tk):
     return -c * sum(gamma_ks_matrix*Ak/Ek * Tk)
 def calc_n(Ak, Ek, Tk):
     return real(1.0 - 1.0/N * sum(Ak/Ek*Tk))
+
+def calc_mu_s(mu_0, W, n_el, Bk, U):
+    Ak = calc_Ak(1.0, W, mu_0 - n_el/2*U)
+    Ek = calc_Ek(Ak, Bk)
+    Tk = calc_Tk(Ek)
+    return abs(calc_n(Ak, Ek, Tk) - n_el)
+
+
 def calc_Delta_s(Bk, Ek, Tk):
     return -c*sum(gamma_ks_matrix*Bk/Ek*Tk)
 def calc_Delta_d(Bk, Ek, Tk):
@@ -120,9 +130,9 @@ def calc_Delta(Bk, Ek, Tk):
 def calc_W_n_Delta_s_Delta(Ak, Bk, Tk, Ek):
     return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_s(Bk, Ek, Tk), calc_Delta(Bk, Ek, Tk)
 def calc_W_n_Delta_d_Delta(Ak, Bk, Tk, Ek):
-    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_d(Bk, Ek, Tk), calc_Delta(Bk, Ek, Tk)
+    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_d(Bk, Ek, Tk), 0.0     #, calc_Delta(Bk, Ek, Tk)
 def calc_W_n_Delta_s_Delta_d_Delta(Ak, Bk, Tk, Ek):
-    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_s(Bk, Ek, Tk), 1j*c*sum(gamma_kd_matrix*Bk/Ek*Tk), calc_Delta(Bk, Ek, Tk)
+    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_s(Bk, Ek, Tk), -1j*calc_Delta_d(Bk, Ek, Tk), calc_Delta(Bk, Ek, Tk)
 
 # conditions
 def cond1(EPD):
@@ -155,7 +165,7 @@ def calc_Energy_sid(EPD, W, Delta_s, Delta_d, mu, lamda3, n, Delta, lamda, U, Jz
 
 
 def calc_lamda3(n, Delta, U):
-    return -(Delta*sign(n-1.0)*U)/sqrt((0.5*(n-1.0))**2 + Delta**2)
+    return -(Delta*sign(n-1.0)*U)/sqrt((0.5*(n-1.0))**2 + abs(Delta)**2)
 
 
 
@@ -311,52 +321,60 @@ if calc_stuff:
                     mu_start = HF_result_sid[4]
                     W_start = HF_result_sid[0]
                     Delta_s_start = HF_result_sid[1]
-                    Delta_d_start = HF_result_sid[2]
+                    if Delta_d_start < 1.0e-10:
+                        Delta_d_start = 0.0
+                    else:
+                        Delta_d_start = HF_result_sid[2]
                     Delta_start = HF_result_sid[3]
 
                 n = array(n_el)
 
-                accuracy_delta_mu = 1e-8
-                accuracy_delta_x = 1e-4
+                rel_accuracy_delta_mu = 1e-5
+                rel_accuracy_delta_x = 1e-4
                 delta_x = 1.0
                 delta_mu = 1.0
-                alpha_HF = 0.5
+                alpha_HF = 0.5/(U+1.0)
 
-                cnt = 0
+                cnt_HF = 0
                 max_noi = 2000
-                min_noi = 200
+                min_noi = 500
+                mu_fac = 0.5/(U+1.0)
 
-                while delta_mu > accuracy_delta_mu or delta_x > accuracy_delta_x or cnt < min_noi:
+                while delta_mu > rel_accuracy_delta_mu or delta_x > rel_accuracy_delta_x or cnt_HF < min_noi:
 
                     if symmetry == 's':
                         lamda3 = U*Delta_start
                         K = 1.0
-                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_start, mu_start, lamda3, Delta_s_start)
+                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_start, mu_start  - n_el/2 * U, lamda3, Delta_s_start)
                         W, n, Delta_s, Delta = calc_W_n_Delta_s_Delta(ak, bk, tk, ek)
-                        mu = mu_start + 0.5 * (n_el - n)
-                        delta_mu = abs(mu - mu_start)
+                        #n = alpha_HF*n + (1.0 - alpha_HF) * n
+                        mu = mu_start + mu_fac * (n_el - n)
+                        #mu = optimize.minimize(calc_mu_s, x0=mu_start, args=(W_start, n_el, bk, U), method='Nelder-Mead', options={'xatol': 1e-8, 'disp': False}).x[0]
+
+                        delta_mu = abs((mu - mu_start)/mu)
                         mu_start = array(mu)
-                        delta_x = linalg.norm(array([W - W_start, Delta_s - Delta_s_start, Delta - Delta_start]))
-                        #if cnt%10 == 0:
-                        #    print('cnt = ', cnt, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
+                        #print('mu_start = ', mu_start)
+                        delta_x = linalg.norm(array([(W - W_start)/W]))
+
+                        #if cnt_HF%10 == 0:
+                        #    print('cnt_HF = ', cnt_HF, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
                         #    print('W = ', W, ', Delta_s = ', Delta_s, ', Delta = ', Delta, ', mu = ', mu_start)
 
                         W_start = alpha_HF * W + (1.0 - alpha_HF) * W_start
                         Delta_s_start = alpha_HF * Delta_s + (1.0 - alpha_HF) * Delta_s_start
                         Delta_start = alpha_HF * Delta + (1.0 - alpha_HF) * Delta_start
 
-
                     elif symmetry == 'd':
                         lamda3 = U*Delta_start
                         K = 1.0
-                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_start, mu_start, lamda3, Delta_d_start)
+                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_start, mu_start  - n_el/2 * U, lamda3, Delta_d_start)
                         W, n, Delta_d, Delta = calc_W_n_Delta_d_Delta(ak, bk, tk, ek)
-                        mu = mu_start + 0.5 * (n_el - n)
-                        delta_mu = abs(mu - mu_start)
+                        mu = mu_start + mu_fac * (n_el - n)
+                        delta_mu = abs((mu - mu_start)/mu)
                         mu_start = array(mu)
-                        delta_x = linalg.norm(array([W - W_start, Delta_d - Delta_d_start, Delta - Delta_start]))
-                        #if cnt % 10 == 0:
-                        #    print('cnt = ', cnt, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
+                        delta_x = linalg.norm(array([(W - W_start)/W]))
+                        #if cnt_HF % 10 == 0:
+                        #    print('cnt_HF = ', cnt_HF, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
                         #    print('W = ', W, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
 
                         W_start = alpha_HF * W + (1.0 - alpha_HF) * W_start
@@ -367,14 +385,14 @@ if calc_stuff:
                     elif symmetry == 'sid':
                         lamda3 = U*Delta_start
                         K = 1.0
-                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start, lamda3, Delta_s_start, Delta_d_start)
+                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start  - n_el/2 * U, lamda3, Delta_s_start, Delta_d_start)
                         W, n, Delta_s, Delta_d, Delta = calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)
-                        mu = mu_start + 0.5 * (n_el - n)
-                        delta_mu = abs(mu - mu_start)
+                        mu = mu_start + mu_fac * (n_el - n)
+                        delta_mu = abs((mu - mu_start)/mu)
                         mu_start = array(mu)
-                        delta_x = linalg.norm(array([W - W_start, Delta_s - Delta_s_start, Delta_d - Delta_d_start, Delta - Delta_start]))
-                        #if cnt % 10 == 0:
-                        #    print('cnt = ', cnt, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
+                        delta_x = linalg.norm(array([(W - W_start)/W]))
+                        #if cnt_HF % 10 == 0:
+                        #    print('cnt_HF = ', cnt_HF, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
                         #    print('W = ', W,', Delta_s = ', Delta_s, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
 
                         W_start = alpha_HF * W + (1.0 - alpha_HF) * W_start
@@ -387,71 +405,71 @@ if calc_stuff:
 
 
 
-                    if cnt == 300:
+                    if cnt_HF == 300:
                         alpha_HF = 0.2
                         #print('reduce alpha to', alpha_HF)
-                    if cnt == 400:
+                    if cnt_HF == 400:
                         alpha_HF = 0.1
                         #print('reduce alpha to', alpha_HF)
-                    if cnt == 500:
+                    if cnt_HF == 500:
                         alpha_HF = 0.05
                         #print('reduce alpha to', alpha_HF)
-                    if cnt == 600:
+                    if cnt_HF == 600:
                         alpha_HF = 0.01
                         #print('reduce alpha to', alpha_HF)
-                    if cnt == 700:
+                    if cnt_HF == 700:
                         alpha_HF = 0.005
                         #print('reduce alpha to', alpha_HF)
-                    if cnt == 800:
+                    if cnt_HF == 800:
                         alpha_HF = 0.001
                         #print('reduce alpha to', alpha_HF)
 
 
-                    cnt += 1
-                    if cnt > max_noi:
-                        print('After', cnt, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x,
+                    cnt_HF += 1
+                    if cnt_HF > max_noi:
+                        print('After', cnt_HF, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x,
                               ', n_el_rel_deviation =',
                               (n - n_el) / n_el)
-                        break
                         #raise ValueError('No convergence in Hartree-Fock', symmetry)
+                        break
 
-                #print('After', cnt, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x, ', n_el_rel_deviation =',
+                #print('After', cnt_HF, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x, ', n_el_rel_deviation =',
                 #      (n - n_el) / n_el)
 
                 if symmetry == 's':
-                    epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(1.0, W_start, mu_start, U * Delta_start,
+                    epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(1.0, W_start, mu_start - n/2*U, U * Delta_start,
                                                                    Delta_s_start)
                     HF_result_s = array([W_start, Delta_s_start, Delta_start, mu_start])
                     HF_energy_s = real((n - 1) * mu_start + 1 / N * sum(epsk - ek * tk) - 4 * V1 * (
-                            abs(Delta_s_start) ** 2 - abs(W_start) ** 2) - U * Delta_start ** 2)
-                    # print('cnt =', cnt, ', s-symmetry results:')
+                            abs(Delta_s_start) ** 2 - abs(W_start) ** 2) - U * Delta_start ** 2 + n/2*U - U*n**2/4)
+                    # print('cnt_HF =', cnt_HF, ', s-symmetry results:')
                     # print('HF_energy_s = ', HF_energy_s)
                     # print('W = ', W_start, ', Delta_s = ', Delta_s_start, ', Delta = ', Delta_start, ', mu = ', mu_start, ', n = ', n)
                 elif symmetry == 'd':
-                    epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(1.0, W_start, mu_start, U * Delta_start,
+                    epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(1.0, W_start, mu_start - n/2*U, U * Delta_start,
                                                                    Delta_d_start)
                     HF_result_d = array([W_start, Delta_d_start, Delta_start, mu_start])
                     HF_energy_d = real((n - 1) * mu_start + 1 / N * sum(epsk - ek * tk) - 4 * V1 * (
-                            abs(Delta_d_start) ** 2 - abs(W_start) ** 2) - U * Delta_start ** 2)
-                    # print('cnt =', cnt, ', d-symmetry results:')
+                            abs(Delta_d_start) ** 2 - abs(W_start) ** 2) - U * Delta_start ** 2 + n/2*U- U*n**2/4)
+                    # print('cnt_HF =', cnt_HF, ', d-symmetry results:')
                     # print('HF_energy_d = ', HF_energy_d)
                     # print('W = ', W_start, ', Delta_d = ', Delta_d_start, ', Delta = ', Delta_start, ', mu = ', mu_start, ', n = ', n)
                 elif symmetry == 'sid':
-                    epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_start, mu_start, U * Delta_start,
+                    epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_start, mu_start - n/2*U, U * Delta_start,
                                                                    Delta_s_start, Delta_d_start)
                     HF_result_sid = array([W_start, Delta_s_start, Delta_d_start, Delta_start, mu_start])
                     HF_energy_sid = real((n - 1) * mu_start + 1 / N * sum(epsk - ek * tk) - 4 * V1 * (
-                            abs(Delta_s_start) ** 2 + abs(Delta_d_start) ** 2 - abs(W_start) ** 2) - U * Delta_start ** 2)
-                    # print('cnt =', cnt, ', s+id-symmetry results:')
+                            abs(Delta_s_start) ** 2 + abs(Delta_d_start) ** 2 - abs(W_start) ** 2) - U * Delta_start ** 2 + n/2*U - U*n**2/4)
+                    # print('cnt_HF =', cnt_HF, ', s+id-symmetry results:')
                     # print('HF_energy_sid = ', HF_energy_sid)
                     # print('W = ', W, ', Delta_s = ', Delta_s_start, ', Delta_d = ', Delta_d_start*1j, ', Delta = ', Delta_start, ', mu = ', mu_start, ', n = ', n)
                 # print('\n')
 
             smallest_HF_energy = argmin(array([HF_energy_s, HF_energy_d, HF_energy_sid]))
 
-            if abs(HF_energy_sid - HF_energy_d) < 1.0e-4 and HF_energy_d < HF_energy_s:
+            if abs(HF_energy_sid - HF_energy_d) < s_d_sid_transition_accuracy and HF_energy_d < HF_energy_s:
                 phase_diagramm_HF[n_el_array_index, U_index] = 1
-            elif abs(HF_energy_sid - HF_energy_s) < 1.0e-4 and HF_energy_s < HF_energy_d:
+            elif abs(HF_energy_sid - HF_energy_s) < s_d_sid_transition_accuracy and HF_energy_s < HF_energy_d:
                 phase_diagramm_HF[n_el_array_index, U_index] = 0
             else:
                 phase_diagramm_HF[n_el_array_index, U_index] = argmin(array([HF_energy_s, HF_energy_d, HF_energy_sid]))
@@ -513,28 +531,29 @@ if calc_stuff:
                     lamda = 1.0e4
                     n = array(n_el)
 
-                    accuracy_delta_mu = 1e-8
-                    accuracy_delta_x = 1e-4
+                    rel_accuracy_delta_mu = 1e-4
+                    rel_accuracy_delta_x = 1e-3
                     accuracy_conditions = 1.0e-5
-                    delta_EPD, delta_x = 1.0, 1.0
+                    delta_x = 1.0, 1.0
                     delta_mu = 1.0
                     conditions_1 = 1.0
                     conditions_2 = 1.0
                     # parameters for minimization of the slave boson conditions
                     lamda_1_2 = array([1.0e4, 1.0e4])
-                    alpha_GA = 0.5
+                    alpha_GA = 0.5/(U+1.0)
+                    mu_fac = 0.5/(U+1.0)
 
-                    leftbound = 1.0e-10  # for low U a higher leftbound works better! (e.g. for U=4.0 use leftbound=1.0e-6)
-                    cnt = 0
+                    leftbound = 1.0e-7  # for low U a higher leftbound works better! (e.g. for U=4.0 use leftbound=1.0e-6)
+                    cnt_GA = 0
                     max_noi = 2000
-                    min_noi = 200
+                    min_noi = 400
                     ema = 1.0e-12  # accuracy for the energy minimization
 
                     bounds_array = zeros((3, 2), dtype=float)
                     for ii in range(3):
                         bounds_array[ii] = (leftbound, 1.0)
 
-                    while delta_mu > accuracy_delta_mu or delta_x > accuracy_delta_x or conditions_1 > accuracy_conditions or conditions_2 > accuracy_conditions or cnt < min_noi:
+                    while delta_mu > rel_accuracy_delta_mu or delta_x > rel_accuracy_delta_x or conditions_1 > accuracy_conditions or conditions_2 > accuracy_conditions or cnt_GA < min_noi:
                         if symmetry == 's':
                             R = calc_R(*EPD_start)
 
@@ -543,12 +562,14 @@ if calc_stuff:
                             epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_start, mu_start, lamda3, Delta_s_start)
 
                             W, n, Delta_s, Delta = calc_W_n_Delta_s_Delta(ak, bk, tk, ek)
-                            mu = mu_start + 0.5 * (n_el - n)
-                            delta_mu = abs(mu - mu_start)
+                            mu = mu_start + mu_fac * (n_el - n)
+
+                            delta_mu = abs((mu - mu_start) / mu)
                             mu_start = array(mu)
-                            delta_x = linalg.norm(array([W - W_start, Delta_s - Delta_s_start, Delta - Delta_start]))
-                            #if cnt%10 == 0:
-                            #    print('cnt = ', cnt, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
+                            delta_x = linalg.norm(array([(W - W_start) / W]))
+
+                            #if cnt_GA%10 == 0:
+                            #    print('cnt_GA = ', cnt_GA, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
                             #    print('W = ', W, ', Delta_s = ', Delta_s, ', Delta = ', Delta, ', mu = ', mu_start)
 
                             W_start = alpha_GA * W + (1.0 - alpha_GA) * W_start
@@ -569,12 +590,12 @@ if calc_stuff:
                             K = R**2
                             epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_start, mu_start, lamda3, Delta_d_start)
                             W, n, Delta_d, Delta = calc_W_n_Delta_d_Delta(ak, bk, tk, ek)
-                            mu = mu_start + 0.5 * (n_el - n)
-                            delta_mu = abs(mu - mu_start)
+                            mu = mu_start + mu_fac * (n_el - n)
+                            delta_mu = abs((mu - mu_start) / mu)
                             mu_start = array(mu)
-                            delta_x = linalg.norm(array([W - W_start, Delta_d - Delta_d_start, Delta - Delta_start]))
-                            #if cnt % 10 == 0:
-                            #    print('cnt = ', cnt, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
+                            delta_x = linalg.norm(array([(W - W_start) / W]))
+                            #if cnt_GA % 10 == 0:
+                            #    print('cnt_GA = ', cnt_GA, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
                             #    print('W = ', W, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
 
                             W_start = alpha_GA * W + (1.0 - alpha_GA) * W_start
@@ -591,17 +612,18 @@ if calc_stuff:
 
                         elif symmetry == 'sid':
                             R = calc_R(*EPD_start)
-
+                            #Delta_d_start = 0.0
                             lamda3 = calc_lamda3(n, Delta_start, U)
                             K = R**2
                             epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start, lamda3, Delta_s_start, Delta_d_start)
                             W, n, Delta_s, Delta_d, Delta = calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)
-                            mu = mu_start + 0.5 * (n_el - n)
-                            delta_mu = abs(mu - mu_start)
+                            #Delta_d = 0.0
+                            mu = mu_start + mu_fac * (n_el - n)
+                            delta_mu = abs((mu - mu_start) / mu)
                             mu_start = array(mu)
-                            delta_x = linalg.norm(array([W - W_start, Delta_s - Delta_s_start, Delta_d - Delta_d_start, Delta - Delta_start]))
-                            #if cnt % 10 == 0:
-                            #    print('cnt = ', cnt, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
+                            delta_x = linalg.norm(array([(W - W_start) / W]))
+                            #if cnt_GA % 10 == 0:
+                            #    print('cnt_GA = ', cnt_GA, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
                             #    print('W = ', W,', Delta_s = ', Delta_s, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
 
                             W_start = alpha_GA * W + (1.0 - alpha_GA) * W_start
@@ -622,55 +644,49 @@ if calc_stuff:
                         EPD_start = (energy_minimization.x).reshape(3)
 
 
-                        if cnt > 10:
+                        if cnt_GA > 10:
                             lamda = 5.0e4
-                        if cnt > 20:
+                        if cnt_GA > 20:
                             lamda = 1.0e5
-                        if cnt > 30:
+                        if cnt_GA > 30:
                             lamda = 1.0e6
-                        if cnt > 40:
+                        if cnt_GA > 40:
                             lamda = 1.0e7
-                        if cnt > 50:
+                        if cnt_GA > 50:
                             lamda = 1.0e8
 
-                        if cnt > 70:
+                        if cnt_GA > 70:
                             lamda = 1.0e9
-                        if cnt > 80:
+                        if cnt_GA > 80:
                             lamda = 1.0e10
 
-                        if cnt == 100:
+                        if cnt_GA == 300:
                             alpha_GA = 0.2
-                            #print('reduce alpha to', alpha_GA)
-                        if cnt == 200:
+                        if cnt_GA == 400:
                             alpha_GA = 0.1
-                            #print('reduce alpha to', alpha_GA)
-                        if cnt == 300:
+                        if cnt_GA == 500:
                             alpha_GA = 0.05
-                            #print('reduce alpha to', alpha_GA)
-                        if cnt == 400:
+                        if cnt_GA == 600:
                             alpha_GA = 0.01
-                            #print('reduce alpha to', alpha_GA)
-                        if cnt == 800:
+                        if cnt_GA == 700:
                             alpha_GA = 0.005
-                            #print('reduce alpha to', alpha_GA)
-                        if cnt == 1600:
+                        if cnt_GA == 800:
                             alpha_GA = 0.001
-                            #print('reduce alpha to', alpha_GA)
 
 
-                        cnt += 1
-                        if cnt > max_noi:
-                            print('After', cnt, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x,
+                        cnt_GA += 1
+                        if cnt_GA > max_noi:
+                            print('After', cnt_GA, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x,
                                   ', n_el_rel_deviation =',
                                   (n - n_el) / n_el, ', energy =', energy_minimization.fun, ', conditions:',
                                   conditions_1, conditions_2)
-                            raise ValueError('No convergence in time dependent GA')
-                            #break
+                            #raise ValueError('No convergence in time dependent GA')
+                            break
 
                         conditions_1 = linalg.norm(cond1(EPD_start))
                         conditions_2 = linalg.norm(cond1(EPD_start))
 
-                    # print('After', cnt, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x, ', n_el_rel_deviation =',
+                    # print('After', cnt_GA, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x, ', n_el_rel_deviation =',
                     #       (n - n_el) / n_el, ', energy =', energy_minimization.fun, ', conditions:',
                     #       conditions_1, conditions_2, '\n')
 
@@ -679,29 +695,25 @@ if calc_stuff:
                         K = R ** 2
                         Jz, J = calc_Jz_J(n, Delta_start)
                         lamda3 = calc_lamda3(n, Delta_start, U)
-                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_start, mu_start, lamda3, Delta_s_start)
-                        DO = calc_DO(EPD_start[2], Jz, J)
-                        GA_energy_s = real((n-1)*mu_start + 1/N*sum(epsk - ek*tk) - 4*V1*(abs(Delta_s_start)**2 - abs(W_start)**2) - 2.0*lamda3*Delta_start + U*DO)
+
+                        GA_energy_s = calc_Energy_s(EPD_start, W_start, Delta_s_start, mu_start, lamda3, n, Delta_start, 0.0, U, Jz, J)
 
                         GA_result_s = array([W_start, Delta_s_start, Delta_start, mu_start])
-                        # print('cnt =', cnt, ', s-symmetry results:')
+                        # print('cnt_GA =', cnt_GA, ', s-symmetry results:')
                         # print('GA_energy_s = ', GA_energy_s)
                         # print('W = ', W, ', Delta_s = ', Delta_s, ', Delta = ', Delta, ', mu = ', mu_start)
                         # print('EPD: ', EPD_start, '\n')
+
                     elif symmetry == 'd':
                         R = calc_R(*EPD_start)
                         K = R ** 2
                         Jz, J = calc_Jz_J(n, Delta_start)
                         lamda3 = calc_lamda3(n, Delta_start, U)
-                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_start, mu_start, lamda3,
-                                                                       Delta_d_start)
-                        DO = calc_DO(EPD_start[2], Jz, J)
-                        GA_energy_d = real((n - 1) * mu_start + 1 / N * sum(epsk - ek * tk) - 4 * V1 * (
-                                    abs(Delta_d_start) ** 2 - abs(
-                                W_start) ** 2) - 2.0 * lamda3 * Delta_start + U * DO)
+
+                        GA_energy_d = calc_Energy_d(EPD_start, W_start, Delta_d_start, mu_start, lamda3, n, Delta_start, 0.0, U, Jz, J)
 
                         GA_result_d = array([W_start, Delta_d_start, Delta_start, mu_start])
-                        # print('cnt =', cnt, ', d-symmetry results:')
+                        # print('cnt_GA =', cnt_GA, ', d-symmetry results:')
                         # print('GA_energy_d = ', GA_energy_d)
                         # print('W = ', W, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
                         # print('EPD: ', EPD_start, '\n')
@@ -710,25 +722,21 @@ if calc_stuff:
                         K = R**2
                         Jz, J = calc_Jz_J(n, Delta_start)
                         lamda3 = calc_lamda3(n, Delta_start, U)
-                        epsk, ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start, lamda3,
-                                                                       Delta_s_start, Delta_d_start)
-                        DO = calc_DO(EPD_start[2], Jz, J)
-                        GA_energy_sid = real((n - 1) * mu_start + 1 / N * sum(epsk - ek * tk) - 4 * V1 * (
-                                    abs(Delta_s_start) ** 2 + abs(Delta_d_start) ** 2 - abs(
-                                W_start) ** 2) - 2.0 * lamda3 * Delta_start + U * DO)
+
+                        GA_energy_sid = calc_Energy_sid(EPD_start, W_start, Delta_s_start, Delta_d_start, mu_start, lamda3, n, Delta_start, 0.0, U, Jz, J)
 
                         GA_result_sid = array([W_start, Delta_s_start, Delta_d_start, Delta_start, mu_start])
-                        # print('cnt =', cnt, ', s+id-symmetry results:')
+                        # print('cnt_GA =', cnt_GA, ', s+id-symmetry results:')
                         # print('GA_energy_sid = ', GA_energy_sid)
                         # print('W = ', W, ', Delta_s = ', Delta_s, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
                         # print('EPD: ', EPD_start, '\n')
 
                 smallest_GA_energy = argmin(array([GA_energy_s, GA_energy_d, GA_energy_sid]))
 
-                if abs(GA_energy_sid - GA_energy_d) < 1.0e-4 and GA_energy_d < GA_energy_s:
+                if abs(GA_energy_sid - GA_energy_d) < s_d_sid_transition_accuracy and GA_energy_d < GA_energy_s:
                     phase_diagramm_time_dependent_GA[n_el_array_index, U_index] = 1
 
-                elif abs(GA_energy_sid - GA_energy_s) < 1.0e-4 and GA_energy_s < GA_energy_d:
+                elif abs(GA_energy_sid - GA_energy_s) < s_d_sid_transition_accuracy and GA_energy_s < GA_energy_d:
                     phase_diagramm_time_dependent_GA[n_el_array_index, U_index] = 0
 
                 else:
@@ -741,11 +749,16 @@ if calc_stuff:
                 # else:
                 #     print('s+id-symmetry is the lowest energy solution')
 
-                print('n_el = ', round(n_el, 2), ', U = ', round(U, 2), ':   HF symmetry: ', phase_diagramm_HF[n_el_array_index, U_index], ', GA symmetry: ', phase_diagramm_time_dependent_GA[n_el_array_index, U_index])
-                print('HF energies: ', HF_energy_s, HF_energy_d, HF_energy_sid, 'GA energies: ', GA_energy_s, GA_energy_d, GA_energy_sid)
-                print('HF results: ', HF_result_s, HF_result_d, HF_result_sid)
-                print('GA results: ', GA_result_s, GA_result_d, GA_result_sid)
-                print('\n')
+                print('n_el = ', round(n_el, 2), ', U = ', round(U, 2), ':   HF symmetry: ', phase_diagramm_HF[n_el_array_index, U_index], ', GA symmetry: ', phase_diagramm_time_dependent_GA[n_el_array_index, U_index], ', number of iterations: ', cnt_GA)
+                # print('HF energies: ', HF_energy_s, HF_energy_d, HF_energy_sid, 'GA energies: ', GA_energy_s, GA_energy_d, GA_energy_sid)
+                # print('HF results: ', HF_result_s, HF_result_d, HF_result_sid)
+                # print('GA results: ', GA_result_s, GA_result_d, GA_result_sid)
+                # print('\n')
+            else:
+                print('n_el = ', round(n_el, 2), ', U = ', round(U, 2), ':   HF symmetry: ', phase_diagramm_HF[n_el_array_index, U_index], ', number of iterations: ', cnt_HF)
+                # print('HF energies: ', HF_energy_s, HF_energy_d, HF_energy_sid)
+                # print('HF results: ', HF_result_s, HF_result_d, HF_result_sid)
+                # print('\n')
 
 
 
