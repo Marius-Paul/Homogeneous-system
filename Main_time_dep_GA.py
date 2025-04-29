@@ -178,7 +178,7 @@ def GA_exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U
 def cond1(EPD):
     return EPD[2] + 2.0*EPD[1] + EPD[0] - 1.0
 def cond2(EPD, n):
-    return EPD[1] + EPD[2] - n/2.0
+    return EPD[1] + EPD[2]- n/2.0
 
 # energies
 
