@@ -4,7 +4,7 @@ from scipy import optimize
 
 
 sqrt_N = 100
-kBT = 1.0e-3  # temperature
+kBT = 1.0e-5  # temperature
 N = sqrt_N**2  # dimension of grid, has to be an even integer!
 V1 = -2.0   # (constant) potential energy for next neighbour interaction
 c = 1.0/(8.0*N)  # a constant which is often needed in the calculations
@@ -12,7 +12,7 @@ a = 1.0  # grid constant
 t = 1.0  # hopping parameter for horizontal and vertical neighbours
 #t_diag = 0.0  # hopping parameter for diagonal neighbours, should take values like 0.0, -0.2, -0.4
 
-s_d_sid_transition_accuracy = 1.0e-6
+s_d_sid_transition_accuracy = 1.0e-4
 rel_accuracy_delta_mu = 1e-7
 rel_accuracy_delta_x = 1e-6
 min_noi = 0
@@ -21,9 +21,9 @@ min_noi = 0
 #U = 0.0 # should take values like 4, 8, 12
 
 #n_el = 0.6
-U_array = linspace(0.0, 8.0, 1)
-t_prime_array = linspace(0.0, -1.0, 41)      # only do it for ONE U (len(U_array)=1)
-n_el_array = linspace(0.10, 0.60, 11)
+U_array = linspace(0.0, 4.0, 1)
+t_prime_array = array([0.0, -0.1, -0.2, -0.3, -0.4, -0.5])  #linspace(0.0, -1.0, 1)      # only do it for ONE U (len(U_array)=1)
+n_el_array = linspace(0.3, 0.50, 5)
 
 phase_diagramm_HF = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
 phase_diagramm_time_dependent_GA = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
@@ -41,7 +41,7 @@ elif len(t_prime_array) > 1:
 
 #phase_diagramm_td_GA_eta = zeros((len(n_el_array), len(U_array)))   # contains the eta for each n_el and U
 
-only_HF = False
+only_HF = True
 calc_stuff = True
 
 dk = 2.0*pi/sqrt_N
@@ -138,7 +138,7 @@ def calc_W_n_Delta_s_Delta(Ak, Bk, Tk, Ek):
 def calc_W_n_Delta_d(Ak, Bk, Tk, Ek):
     return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_d(Bk, Ek, Tk)     #, calc_Delta(Bk, Ek, Tk)
 def calc_W_n_Delta_s_Delta_d_Delta(Ak, Bk, Tk, Ek):
-    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), real(calc_Delta_s(Bk, Ek, Tk)), real(-1j*calc_Delta_d(Bk, Ek, Tk)), real(calc_Delta(Bk, Ek, Tk))
+    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_s(Bk, Ek, Tk), -1j*calc_Delta_d(Bk, Ek, Tk), calc_Delta(Bk, Ek, Tk)
 
 
 
@@ -148,12 +148,20 @@ def exp_fct_minus_exp_vals_s(W_Delta_s_Delta_mu, n_el, t_diag, K, U):
     return calc_W_n_Delta_s_Delta(ak, bk, tk, ek) - array([W_Delta_s_Delta_mu[0], n_el, W_Delta_s_Delta_mu[1], W_Delta_s_Delta_mu[2]])
 
 def exp_fct_minus_exp_vals_d(W_Delta_d_mu, n_el, t_diag, K, U):
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_Delta_d_mu[0], W_Delta_d_mu[-1]  - n_el/2 * U, W_Delta_d_mu[2]*U, W_Delta_d_mu[1], t_diag)
-    return calc_W_n_Delta_d(ak, bk, tk, ek) - array([W_Delta_d_mu[0], n_el, W_Delta_d_mu[1]])
+    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_Delta_d_mu[0], W_Delta_d_mu[-1]  - n_el/2 * U, 0.0, W_Delta_d_mu[1], t_diag)
+    res = array(calc_W_n_Delta_d(ak, bk, tk, ek))
+    #print('res = ', res)
+    return  res - array([W_Delta_d_mu[0], n_el, W_Delta_d_mu[1]])
 
 def exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U):
     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_s_Delta_d_Delta_mu[0], W_Delta_s_Delta_d_Delta_mu[4]  - n_el/2 * U, W_Delta_s_Delta_d_Delta_mu[3]*U, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], t_diag)
+    ##### hier weitermachen!!! s-id funktioniert noch nicht!!!!  calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)
     return calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
+
+
+
+
+
 
 
 
@@ -162,10 +170,9 @@ def GA_exp_fct_minus_exp_vals_s(W_Delta_s_Delta_mu, n_el, t_diag, K, U, Jz):
     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_Delta_s_Delta_mu[0], W_Delta_s_Delta_mu[-1], lamda_3, W_Delta_s_Delta_mu[1], t_diag)
     return calc_W_n_Delta_s_Delta(ak, bk, tk, ek) - array([W_Delta_s_Delta_mu[0], n_el, W_Delta_s_Delta_mu[1], W_Delta_s_Delta_mu[2]])
 
-def GA_exp_fct_minus_exp_vals_d(W_Delta_d_Delta_mu, n_el, t_diag, K, U, Jz):
-    lamda_3 = calc_lamda3(Jz, 0.0, U, n_el)
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_Delta_d_Delta_mu[0], W_Delta_d_Delta_mu[-1], lamda_3, W_Delta_d_Delta_mu[1], t_diag)
-    return calc_W_n_Delta_d(ak, bk, tk, ek) - array([W_Delta_d_Delta_mu[0], n_el, W_Delta_d_Delta_mu[1]])
+def GA_exp_fct_minus_exp_vals_d(W_Delta_d_mu, n_el, t_diag, K, U, Jz):
+    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_Delta_d_mu[0], W_Delta_d_mu[-1], 0.0, W_Delta_d_mu[1], t_diag)
+    return calc_W_n_Delta_d(ak, bk, tk, ek) - array([W_Delta_d_mu[0], n_el, W_Delta_d_mu[1]])
 
 def GA_exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U, Jz):
     lamda_3 = calc_lamda3(Jz, W_Delta_s_Delta_d_Delta_mu[3], U, n_el)
@@ -478,15 +485,16 @@ if calc_stuff:
 
 
                     elif symmetry == 'd':
-                        bounds_array = ([0.0, 0.0, -4.0], [1.0, 1.0, 4.0])
+                        bounds_array = ([0.0, 0.0, -6.0], [1.0, 1.0, 4.0])
                         x_start = array([W_start, Delta_d_start, mu_start])
-                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U),
-                                                          bounds = bounds_array)
+                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U), bounds = bounds_array)
+
                         # x_result = optimize.root(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
 
                         W_start = x_result.x[0]
                         Delta_d_start = x_result.x[1]
                         mu_start = x_result.x[2]
+                        #print('W_start = ', W_start, 'Delta_d_start = ', Delta_d_start, 'mu_start = ', mu_start, 'Delta_start = ', Delta_start)
 
                         ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(1.0, W_start, mu_start - n_el / 2 * U, U*Delta_start,
                                                                  Delta_d_start, t_diag)
@@ -510,6 +518,7 @@ if calc_stuff:
                         Delta_d_start = x_result.x[2]
                         Delta_start = x_result.x[3]
                         mu_start = x_result.x[4]
+                        # print('W_start = ', W_start, 'Delta_s_start = ', Delta_s_start, 'Delta_d_start = ', Delta_d_start, 'mu_start = ', mu_start, 'Delta_start = ', Delta_start)
 
                         ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_start, mu_start - n_el / 2 * U,
                                                                     U * Delta_start,
@@ -791,19 +800,9 @@ if calc_stuff:
                             if cnt_GA > 80:
                                 lamda = 1.0e10
 
-                            if cnt_GA == 1000:
-                                alpha_GA = 0.05
-                                print('reducing alpha_GA to', alpha_GA)
-                            if cnt_GA == 1500:
-                                alpha_GA = 0.01
-                                print('reducing alpha_GA to', alpha_GA)
 
                             cnt_GA += 1
                             if cnt_GA > max_noi:
-                                print('After', cnt_GA, 'iterations: ', ' delta_mu =', delta_mu, 'delta_x =', delta_x,
-                                      ', n_el_rel_deviation =',
-                                      (n - n_el) / n_el, ', energy =', energy_minimization.fun, ', conditions:',
-                                      conditions_1, conditions_2)
                                 #raise ValueError('No convergence in time dependent GA')
                                 break
 
@@ -886,8 +885,8 @@ if calc_stuff:
                     print('\n')
                 else:
                     print('t_diag = ', round(t_diag, 2), ', n_el = ', round(n_el, 2), ', U = ', round(U, 2), ':   HF symmetry: ', phase_diagramm_HF[n_el_array_index, U_index])
-                    # print('HF energies: ', HF_energy_s, HF_energy_d, HF_energy_sid)
-                    # print('HF results: ', HF_result_s, HF_result_d, HF_result_sid)
+                    print('HF energies: ', HF_energy_s, HF_energy_d, HF_energy_sid)
+                    print('HF results: ', HF_result_s, HF_result_d, HF_result_sid)
                     # print('\n')
                     #
 
@@ -955,7 +954,7 @@ if len(U_array) > 1:
     show()
 
 if len(t_prime_array) > 1:
-    indx = 5
+    indx = 0
     n_el_of_interest = n_el_array[indx]
 
     fig, (ax1, ax2) = subplots(2)
@@ -994,12 +993,14 @@ if len(t_prime_array)>1 and len(n_el_array)>1:
     figure()
 
     subplot(211)
+    print(t_prime_phase_diagramm_HF)
     ylim(t_prime_array[0], t_prime_array[-1])
     pcolormesh(n_el_array, t_prime_array+dt_diag/2, t_prime_phase_diagramm_HF.T)
     title('Hartree-Fock', fontsize=fs)
     xlabel(r'electron density $n$', fontsize=fs, loc = 'right')
     ylabel(r'$t\prime /t$', fontsize=fs)
     tick_params(axis='both', which='major', labelsize=fs)
+    ylim(t_prime_array[0]+0.1, t_prime_array[-1]-0.4)
     #text(0.21, 0.5, 's-symmetry', color='w', fontsize=fs2, transform=gca().transAxes, ha='center', va='center')
     #text(0.71, 0.5, 'd-symmetry', color='w', fontsize=fs2, transform=gca().transAxes, ha='center', va='center')
     #text(0.30, 0.91, 's+id-symmetry', color='k', fontsize=fs2, transform=gca().transAxes, ha='center', va='center')
