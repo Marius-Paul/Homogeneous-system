@@ -22,8 +22,8 @@ min_noi = 0
 
 #n_el = 0.6
 U_array = linspace(0.0, 4.0, 1)
-t_prime_array = array([0.0, -0.1, -0.2, -0.3, -0.4, -0.5])  #linspace(0.0, -1.0, 1)      # only do it for ONE U (len(U_array)=1)
-n_el_array = linspace(0.3, 0.50, 5)
+t_prime_array = linspace(0.0, 1.0, 51)      # only do it for ONE U (len(U_array)=1)
+n_el_array = linspace(0.35, 0.40, 21)
 
 phase_diagramm_HF = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
 phase_diagramm_time_dependent_GA = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
@@ -155,12 +155,20 @@ def exp_fct_minus_exp_vals_d(W_Delta_d_mu, n_el, t_diag, K, U):
 
 def exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U):
     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_s_Delta_d_Delta_mu[0], W_Delta_s_Delta_d_Delta_mu[4]  - n_el/2 * U, W_Delta_s_Delta_d_Delta_mu[3]*U, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], t_diag)
-    ##### hier weitermachen!!! s-id funktioniert noch nicht!!!!  calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)
-    return calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
+    return real(calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
 
 
 
 
+# W_Delta_s_Delta_d_Delta_mu_test = array([0.1, 0.1, 0.0742, 0.04, -2.1])
+# U_test = 0.0
+# n_el_test = 0.3
+# t_diag_test = -0.5
+#
+# ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_Delta_s_Delta_d_Delta_mu_test[0], W_Delta_s_Delta_d_Delta_mu_test[4]  - n_el_test/2 * U_test, W_Delta_s_Delta_d_Delta_mu_test[3]*U_test, W_Delta_s_Delta_d_Delta_mu_test[1], W_Delta_s_Delta_d_Delta_mu_test[2], t_diag_test)
+#     ##### hier weitermachen!!! s-id funktioniert noch nicht!!!!  calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)
+# print(calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek))
+# exit()
 
 
 
@@ -177,7 +185,7 @@ def GA_exp_fct_minus_exp_vals_d(W_Delta_d_mu, n_el, t_diag, K, U, Jz):
 def GA_exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U, Jz):
     lamda_3 = calc_lamda3(Jz, W_Delta_s_Delta_d_Delta_mu[3], U, n_el)
     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_s_Delta_d_Delta_mu[0], W_Delta_s_Delta_d_Delta_mu[4], lamda_3, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], t_diag)
-    return calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
+    return real(calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
 
 
 
@@ -435,6 +443,7 @@ if calc_stuff:
                 # Hartree-Fock
                 for symmetry in symmetries:
                     # set initial values
+
                     if U==U_array[0] and t_diag==t_prime_array[0]:
                         mu_start = -2.0
                         W_start = 0.1
@@ -464,10 +473,10 @@ if calc_stuff:
 
 
                     if symmetry == 's':
-                        bounds_array = ([0.0, 0.0, 0.0, -4.0], [1.0, 1.0, 1.0, 4.0])
+                        #bounds_array = ([-1.0, -1.0, -1.0, -4.0], [1.0, 1.0, 1.0, 4.0])
                         x_start = array([W_start, Delta_s_start, Delta_start, mu_start])
-                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_s, x_start, args=(n_el, t_diag, K, U),
-                                                          bounds = bounds_array)
+                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_s, x_start, args=(n_el, t_diag, K, U))#,
+                                                          #bounds = bounds_array)
                         #x_result = optimize.root(exp_fct_minus_exp_vals_s, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
 
 
@@ -485,9 +494,9 @@ if calc_stuff:
 
 
                     elif symmetry == 'd':
-                        bounds_array = ([0.0, 0.0, -6.0], [1.0, 1.0, 4.0])
+                        #bounds_array = ([-1.0, -1.0, -6.0], [1.0, 1.0, 4.0])
                         x_start = array([W_start, Delta_d_start, mu_start])
-                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U), bounds = bounds_array)
+                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U)) #, bounds = bounds_array)
 
                         # x_result = optimize.root(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
 
@@ -496,21 +505,20 @@ if calc_stuff:
                         mu_start = x_result.x[2]
                         #print('W_start = ', W_start, 'Delta_d_start = ', Delta_d_start, 'mu_start = ', mu_start, 'Delta_start = ', Delta_start)
 
-                        ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(1.0, W_start, mu_start - n_el / 2 * U, U*Delta_start,
+                        ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(1.0, W_start, mu_start - n_el / 2 * U, 0.0,
                                                                  Delta_d_start, t_diag)
                         HF_result_d = array([W_start, Delta_d_start, Delta_start, mu_start])
-                        HF_energy_d = real((n_el - 1.0) * mu_start + 1.0 / N * sum(- ek * tk) - 4.0 * V1 * (
+                        HF_energy_d = (n_el - 1.0) * mu_start + 1.0 / N * sum(- ek * tk) - 4.0 * V1 * (
                                 abs(Delta_d_start) ** 2 - abs(
-                            W_start) ** 2) - U * Delta_start ** 2 + n_el / 2 * U - U * n_el ** 2 / 4)
+                            W_start) ** 2) + n_el / 2 * U - U * n_el ** 2 / 4
 
 
 
                     elif symmetry == 'sid':
-                        bounds_array = ([0.0, 0.0, 0.0, 0.0, -4.0], [1.0, 1.0, 1.0, 1.0, 4.0])
+                        #bounds_array = ([-1.0, -1.0, -1.0, -1.0, -4.0], [1.0, 1.0, 1.0, 1.0, 4.0])
                         x_start = array([W_start, Delta_s_start, Delta_d_start, Delta_start, mu_start])
                         x_result = optimize.least_squares(exp_fct_minus_exp_vals_sid, x_start,
-                                                          args=(n_el, t_diag, K, U),
-                                                          bounds = bounds_array)
+                                                          args=(n_el, t_diag, K, U))
                         # x_result = optimize.root(exp_fct_minus_exp_vals_sid, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
 
                         W_start = x_result.x[0]
@@ -1000,7 +1008,7 @@ if len(t_prime_array)>1 and len(n_el_array)>1:
     xlabel(r'electron density $n$', fontsize=fs, loc = 'right')
     ylabel(r'$t\prime /t$', fontsize=fs)
     tick_params(axis='both', which='major', labelsize=fs)
-    ylim(t_prime_array[0]+0.1, t_prime_array[-1]-0.4)
+    ylim(t_prime_array[0], t_prime_array[-1])
     #text(0.21, 0.5, 's-symmetry', color='w', fontsize=fs2, transform=gca().transAxes, ha='center', va='center')
     #text(0.71, 0.5, 'd-symmetry', color='w', fontsize=fs2, transform=gca().transAxes, ha='center', va='center')
     #text(0.30, 0.91, 's+id-symmetry', color='k', fontsize=fs2, transform=gca().transAxes, ha='center', va='center')
