@@ -21,9 +21,9 @@ min_noi = 0
 #U = 0.0 # should take values like 4, 8, 12
 
 #n_el = 0.6
-U_array = linspace(0.0, 4.0, 1)
-t_prime_array = linspace(0.0, 1.0, 51)      # only do it for ONE U (len(U_array)=1)
-n_el_array = linspace(0.35, 0.40, 21)
+U_array = linspace(0.0, 0.2, 3)
+t_prime_array = linspace(0.0, 1.0, 1)      # only do it for ONE U (len(U_array)=1)
+n_el_array = linspace(0.8, 0.90, 21)
 
 phase_diagramm_HF = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
 phase_diagramm_time_dependent_GA = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
@@ -33,11 +33,11 @@ t_prime_phase_diagramm_time_dependent_GA = zeros((len(n_el_array), len(t_prime_a
 
 
 if len(U_array) > 1:
-    all_Energies_HF = zeros((len(n_el_array), len(U_array), 3))
-    all_Energies_GA = zeros((len(n_el_array), len(U_array), 3))
+    all_Energies_HF = zeros((len(n_el_array), len(U_array), 1))
+    all_Energies_GA = zeros((len(n_el_array), len(U_array), 1))
 elif len(t_prime_array) > 1:
-    all_Energies_HF = zeros((len(n_el_array), len(t_prime_array), 3))
-    all_Energies_GA = zeros((len(n_el_array), len(t_prime_array), 3))
+    all_Energies_HF = zeros((len(n_el_array), len(t_prime_array), 1))
+    all_Energies_GA = zeros((len(n_el_array), len(t_prime_array), 1))
 
 #phase_diagramm_td_GA_eta = zeros((len(n_el_array), len(U_array)))   # contains the eta for each n_el and U
 
@@ -92,32 +92,19 @@ def calc_eps_k_matrix(K, W, t_diag):
     return -gamma_ks_matrix*(K*t + V1*W) - K*t_diag*Gamma_k_matrix
 def calc_Ak(K, W, mu,t_diag):
     return calc_eps_k_matrix(K, W, t_diag) - mu
-def calc_Bk_s(lamda3, Delta_s):
-    return lamda3 + V1*Delta_s*gamma_ks_matrix
-def calc_Bk_d(lamda3, Delta_d):
-    return lamda3 + V1*Delta_d*gamma_kd_matrix
-def calc_Bk_s_id(lamda3, Delta_s, Delta_d):
-    return lamda3 + V1*Delta_s*gamma_ks_matrix + 1j*V1*Delta_d*gamma_kd_matrix
+def calc_Bk_s_id(lamda3, Delta_0, eta_k_alpha):
+    return lamda3 + V1*Delta_0*eta_k_alpha
 def calc_Ek(Ak, Bk):
     return sqrt(Ak**2 + abs(Bk)**2)
 def calc_Tk(Ek):
     return 1.0  #tanh(Ek/(2.0*kBT))
 
-def calc_epsk_Ak_Bk_Ek_Tk_s(K, W, mu, lamda3, Delta_s, t_diag):
+
+def calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W, mu, lamda3, Delta_0, t_diag, eta_k_alpha):
     ak = calc_Ak(K, W, mu, t_diag)
-    bk = calc_Bk_s(lamda3, Delta_s)
+    bk = calc_Bk_s_id(lamda3, Delta_0, eta_k_alpha)
     ek = calc_Ek(ak, bk)
-    return ak, bk, ek, calc_Tk(ek)
-def calc_epsk_Ak_Bk_Ek_Tk_d(K, W, mu, lamda3, Delta_d, t_diag):
-    ak = calc_Ak(K, W, mu, t_diag)
-    bk = calc_Bk_d(lamda3, Delta_d)
-    ek = calc_Ek(ak, bk)
-    return ak, bk, ek, calc_Tk(ek)
-def calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W, mu, lamda3, Delta_s, Delta_d, t_diag):
-    ak = calc_Ak(K, W, mu, t_diag)
-    bk = calc_Bk_s_id(lamda3, Delta_s, Delta_d)
-    ek = calc_Ek(ak, bk)
-    return ak, bk, ek, calc_Tk(ek)
+    return ak, bk, ek, 1.0
 
 
 # expectation values
@@ -127,65 +114,32 @@ def calc_n(Ak, Ek, Tk):
     return 1.0 - 1.0/N * sum(Ak/Ek*Tk)
 
 
-def calc_Delta_s(Bk, Ek, Tk):
-    return -c*sum(gamma_ks_matrix*Bk/Ek*Tk)
-def calc_Delta_d(Bk, Ek, Tk):
-    return -c*sum(gamma_kd_matrix*Bk/Ek*Tk)
+def calc_Delta_0(Bk, Ek, Tk, alpha):
+    return -c*sum((gamma_ks_matrix*cos(pi*alpha)-1j*gamma_kd_matrix*sin(pi*alpha))*Bk/Ek*Tk)
+
 def calc_Delta(Bk, Ek, Tk):
     return -1.0/(2.0*N) * sum(Bk/Ek*Tk)
-def calc_W_n_Delta_s_Delta(Ak, Bk, Tk, Ek):
-    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_s(Bk, Ek, Tk), calc_Delta(Bk, Ek, Tk)
-def calc_W_n_Delta_d(Ak, Bk, Tk, Ek):
-    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_d(Bk, Ek, Tk)     #, calc_Delta(Bk, Ek, Tk)
-def calc_W_n_Delta_s_Delta_d_Delta(Ak, Bk, Tk, Ek):
-    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_s(Bk, Ek, Tk), -1j*calc_Delta_d(Bk, Ek, Tk), calc_Delta(Bk, Ek, Tk)
+
+def calc_W_n_Delta_0_Delta(Ak, Bk, Tk, Ek, eta_k_alpha, alpha):
+    print('egno:', calc_Delta_0(Bk, Ek, Tk, alpha))
+    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_0(Bk, Ek, Tk, alpha), calc_Delta(Bk, Ek, Tk)
 
 
 
+def exp_fct_minus_exp_vals_sid(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, alpha):
+    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_0_Delta_mu[0], W_Delta_0_Delta_mu[3]  - n_el/2 * U, W_Delta_0_Delta_mu[2]*U, W_Delta_0_Delta_mu[1], t_diag, eta_k_alpha)
+    return real(calc_W_n_Delta_0_Delta(ak, bk, tk, ek, eta_k_alpha, alpha)) - array([W_Delta_0_Delta_mu[0], n_el, W_Delta_0_Delta_mu[1], W_Delta_0_Delta_mu[2]])
 
-def exp_fct_minus_exp_vals_s(W_Delta_s_Delta_mu, n_el, t_diag, K, U):
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_Delta_s_Delta_mu[0], W_Delta_s_Delta_mu[-1]  - n_el/2 * U, W_Delta_s_Delta_mu[2]*U, W_Delta_s_Delta_mu[1], t_diag)
-    return calc_W_n_Delta_s_Delta(ak, bk, tk, ek) - array([W_Delta_s_Delta_mu[0], n_el, W_Delta_s_Delta_mu[1], W_Delta_s_Delta_mu[2]])
-
-def exp_fct_minus_exp_vals_d(W_Delta_d_mu, n_el, t_diag, K, U):
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_Delta_d_mu[0], W_Delta_d_mu[-1]  - n_el/2 * U, 0.0, W_Delta_d_mu[1], t_diag)
-    res = array(calc_W_n_Delta_d(ak, bk, tk, ek))
-    #print('res = ', res)
-    return  res - array([W_Delta_d_mu[0], n_el, W_Delta_d_mu[1]])
-
-def exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U):
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_s_Delta_d_Delta_mu[0], W_Delta_s_Delta_d_Delta_mu[4]  - n_el/2 * U, W_Delta_s_Delta_d_Delta_mu[3]*U, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], t_diag)
-    return real(calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
+def calc_eta_k_alpha(alpha):
+    return gamma_ks_matrix*cos(pi*alpha) + 1j*gamma_kd_matrix*sin(pi*alpha)
 
 
 
-
-# W_Delta_s_Delta_d_Delta_mu_test = array([0.1, 0.1, 0.0742, 0.04, -2.1])
-# U_test = 0.0
-# n_el_test = 0.3
-# t_diag_test = -0.5
-#
-# ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_Delta_s_Delta_d_Delta_mu_test[0], W_Delta_s_Delta_d_Delta_mu_test[4]  - n_el_test/2 * U_test, W_Delta_s_Delta_d_Delta_mu_test[3]*U_test, W_Delta_s_Delta_d_Delta_mu_test[1], W_Delta_s_Delta_d_Delta_mu_test[2], t_diag_test)
-#     ##### hier weitermachen!!! s-id funktioniert noch nicht!!!!  calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)
-# print(calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek))
-# exit()
-
-
-
-
-def GA_exp_fct_minus_exp_vals_s(W_Delta_s_Delta_mu, n_el, t_diag, K, U, Jz):
-    lamda_3 = calc_lamda3(Jz, W_Delta_s_Delta_mu[2], U, n_el)
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_Delta_s_Delta_mu[0], W_Delta_s_Delta_mu[-1], lamda_3, W_Delta_s_Delta_mu[1], t_diag)
-    return calc_W_n_Delta_s_Delta(ak, bk, tk, ek) - array([W_Delta_s_Delta_mu[0], n_el, W_Delta_s_Delta_mu[1], W_Delta_s_Delta_mu[2]])
-
-def GA_exp_fct_minus_exp_vals_d(W_Delta_d_mu, n_el, t_diag, K, U, Jz):
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_Delta_d_mu[0], W_Delta_d_mu[-1], 0.0, W_Delta_d_mu[1], t_diag)
-    return calc_W_n_Delta_d(ak, bk, tk, ek) - array([W_Delta_d_mu[0], n_el, W_Delta_d_mu[1]])
 
 def GA_exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U, Jz):
     lamda_3 = calc_lamda3(Jz, W_Delta_s_Delta_d_Delta_mu[3], U, n_el)
     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_s_Delta_d_Delta_mu[0], W_Delta_s_Delta_d_Delta_mu[4], lamda_3, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], t_diag)
-    return real(calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
+    return real(calc_W_n_Delta_0_Delta(ak, bk, tk, ek)) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
 
 
 
@@ -197,19 +151,6 @@ def cond2(EPD, n):
 
 # energies
 
-def calc_Energy_s(EPD, W, Delta_s, mu, lamda3, n, Delta, lamda, U, Jz, J, t_diag):
-    R = calc_R(*EPD)
-    k = R**2
-    DO = calc_DO(EPD[2], Jz, J)
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(k, W, mu, lamda3, Delta_s, t_diag)
-    return real((n-1.0)*mu + 1.0/N*sum(- ek*tk) - 4.0*V1*(abs(Delta_s)**2 - abs(W)**2) - 2.0*real(lamda3.conjugate()*Delta) + U*DO + lamda*cond1(EPD)**2 + lamda*cond2(EPD,n)**2)
-
-def calc_Energy_d(EPD, W, Delta_d, mu, lamda3, n, Delta, lamda, U, Jz, J, t_diag):
-    R = calc_R(*EPD)
-    k = R**2
-    DO = calc_DO(EPD[2], Jz, J)
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(k, W, mu, lamda3, Delta_d, t_diag)
-    return real((n-1.0)*mu + 1.0/N*sum(- ek*tk) - 4.0*V1*(abs(Delta_d)**2 - abs(W)**2) - 2.0*real(lamda3.conjugate()*Delta) + U*DO + lamda*cond1(EPD)**2 + lamda*cond2(EPD,n)**2)
 
 def calc_Energy_sid(EPD, W, Delta_s, Delta_d, mu, lamda3, n, Delta, lamda, U, Jz, J, t_diag):
     R = calc_R(*EPD)
@@ -221,7 +162,6 @@ def calc_Energy_sid(EPD, W, Delta_s, Delta_d, mu, lamda3, n, Delta, lamda, U, Jz
 
 def calc_lamda3(Jz, Delta, U, n):
     return - (Delta*sign(n-1.0)*U)/sqrt(Jz**2 + abs(Delta)**2)/2.0
-    #return - l3 - (Delta*sign(n-1.0)*U)/sqrt(Jz**2 + abs(Delta)**2)
 
 
 
@@ -237,39 +177,12 @@ def dR_dD(E, P, D):
 
 
 
-
-# def dR_deta(E, P, D):
-#     return -sqrt(P * D) * sin(eta) / (sqrt(E + P) * sqrt(P + D))
-
-# def dI_dE(E, P, D, eta):
-#     return -(sqrt(P * D) * sin(eta)) / (2.0 * sqrt(E + P) ** 3 * sqrt(D + P))
-# def dI_dP(E, P, D, eta):
-#     return (sqrt(D) * sin(eta) * (D * E - P ** 2)) / (2.0 * sqrt(P) * sqrt(E + P) ** 3 * sqrt(D + P) ** 3)
-# def dI_dD(E, P, D, eta):
-#     return (sqrt(P) ** 3 * sin(eta)) / (2.0 * sqrt(D) * sqrt(E + P) * sqrt(D + P) ** 3)
-# def dI_deta(E, P, D, eta):
-#     return (sqrt(P * D) * cos(eta)) / (sqrt(E + P) * sqrt(P + D))
-
-
-
 def dK_dE(EPD, R):
     return 2.0*R*dR_dE(*EPD)
 def dK_dP(EPD, R):
     return 2.0*R*dR_dP(*EPD)
 def dK_dD(EPD, R):
     return 2.0*R*dR_dD(*EPD)
-# def dK_deta(EPD, R):
-#     return 2.0*R*dR_deta(*EPD)
-
-# def dF_dE(EPD, R, I, redJz, redJplus):
-#     return 2.0*dI_dE(*EPD)*redJplus.conjugate() * (R*1j + 2.0*I*redJz) + 2.0*I*redJplus*(1j*dR_dE(*EPD))
-# def dF_dP(EPD, R, I, redJz, redJplus):
-#     return 2.0*dI_dP(*EPD)*redJplus.conjugate() * (R*1j + 2.0*I*redJz) + 2.0*I*redJplus*(1j*dR_dP(*EPD))
-# def dF_dD(EPD, R, I, redJz, redJplus):
-#     return 2.0*dI_dD(*EPD)*redJplus.conjugate() * (R*1j + 2.0*I*redJz) + 2.0*I*redJplus*(1j*dR_dD(*EPD))
-# def dF_deta(EPD, R, I, redJz, redJplus):
-#     return 2.0*dI_deta(*EPD)*redJplus.conjugate() * (R*1j + 2.0*I*redJz) + 2.0*I*redJplus*(1j*dR_deta(*EPD))
-
 
 
 def dAk_dE(EPD, R, t_diag):
@@ -278,17 +191,6 @@ def dAk_dP(EPD, R, t_diag):
     return - dK_dP(EPD, R)*(t*gamma_ks_matrix + t_diag*Gamma_k_matrix)
 def dAk_dD(EPD, R, t_diag):
     return - dK_dD(EPD, R)*(t*gamma_ks_matrix + t_diag*Gamma_k_matrix)
-# def dAk_deta(EPD, R):
-#     return - dK_deta(EPD, R)*(t*gamma_ks_matrix + t_diag*Gamma_k_matrix)
-
-# def dBk_dE(EPD, R):
-#     return - dF_dE(EPD, R)*(t*gamma_ks_matrix + t_diag*Gamma_k_matrix)
-# def dBk_dP(EPD, R):
-#     return - dF_dP(EPD, R)*(t*gamma_ks_matrix + t_diag*Gamma_k_matrix)
-# def dBk_dD(EPD, R):
-#     return - dF_dD(EPD, R)*(t*gamma_ks_matrix + t_diag*Gamma_k_matrix)
-# def dBk_deta(EPD, R):
-#     return - dF_deta(EPD, R)*(t*gamma_ks_matrix + t_diag*Gamma_k_matrix)
 
 def dEk_dE(Ek, Ak, EPD, R, t_diag):
     return Ak/Ek * dAk_dE(EPD, R, t_diag)
@@ -296,9 +198,6 @@ def dEk_dP(Ek, Ak, EPD, R, t_diag):
     return Ak/Ek * dAk_dP(EPD, R, t_diag)
 def dEk_dD(Ek, Ak, EPD, R, t_diag):
     return Ak/Ek * dAk_dD(EPD, R, t_diag)
-# def dEk_deta(Ek, Ak, EPD, R):
-#     return 1.0/(2.0*Ek) * (2.0*Ak * dAk_deta(EPD, R))
-#
 
 def dEnergy_dE(Ek, Ak, EPD, R, lamda, t_diag):
     return 1.0/N * sum(- dEk_dE(Ek, Ak, EPD, R, t_diag)
@@ -312,22 +211,6 @@ def dEnergy_dD(Ek, Ak, EPD, R, lamda, U, n, t_diag):
     return 1.0/N * sum(- dEk_dD(Ek, Ak, EPD, R, t_diag)
                         *(tanh(Ek/(2.0*kBT))) ) + U + lamda* 2.0 * cond1(EPD) + 2.0*lamda*cond2(EPD, n)
 
-# def dEnergy_deta(Ek, Ak, EPD, R):
-#     return 1.0/N * sum( dAk_deta(EPD, R) - dEk_deta(Ek, Ak, EPD, R)
-#                         *(tanh(Ek/(2.0*kBT))))
-
-def gradient_of_Energy_s(EPD, W, Delta_s, mu, lamda3, n, Delta, lamda, U, Jz, J, t_diag):
-    R = calc_R(*EPD)
-    k = R**2
-    Ak, Bk, Ek, Tk = calc_epsk_Ak_Bk_Ek_Tk_s(k, W, mu, lamda3, Delta_s, t_diag)
-    return array([dEnergy_dE(Ek, Ak, EPD, R, lamda, t_diag), dEnergy_dP(Ek, Ak, EPD, R, lamda, n, t_diag), dEnergy_dD(Ek, Ak, EPD, R, lamda, U, n, t_diag)]).real
-
-def gradient_of_Energy_d(EPD, W, Delta_d, mu, lamda3, n, Delta, lamda, U, Jz, J, t_diag):
-    R = calc_R(*EPD)
-    k = R**2
-    Ak, Bk, Ek, Tk = calc_epsk_Ak_Bk_Ek_Tk_d(k, W, mu, lamda3, Delta_d, t_diag)
-    return array([dEnergy_dE(Ek, Ak, EPD, R, lamda, t_diag), dEnergy_dP(Ek, Ak, EPD, R, lamda, n, t_diag), dEnergy_dD(Ek, Ak, EPD, R, lamda, U, n, t_diag)]).real
-
 def gradient_of_Energy_sid(EPD, W, Delta_s, Delta_d, mu, lamda3, n, Delta, lamda, U, Jz, J, t_diag):
     R = calc_R(*EPD)
     k = R**2
@@ -336,6 +219,67 @@ def gradient_of_Energy_sid(EPD, W, Delta_s, Delta_d, mu, lamda3, n, Delta, lamda
 
 
 
+
+def HF_calc_energy(alpha, n_el, t_diag, U, W_start, Delta_0, mu_start, Delta_start):
+    eta_k_alpha = calc_eta_k_alpha(alpha)
+    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_start, mu_start - n_el / 2 * U,
+                                                U * Delta_start,
+                                                Delta_0, t_diag, eta_k_alpha)
+    return real((n_el - 1.0) * mu_start + 1.0 / N * sum(- ek * tk) - 4.0 * V1 * (
+                                abs(Delta_0) ** 2 - abs(
+                            W_start) ** 2) - U * Delta_start ** 2 + n_el / 2 * U - U * n_el ** 2 / 4)
+
+
+
+def dBk_dalpha(Delta_0, alpha):
+    return V1*pi*Delta_0*(-gamma_ks_matrix*sin(pi*alpha) + 1j*gamma_kd_matrix*cos(pi*alpha))
+
+def d_HF_energy_d_alpha(alpha, n_el, t_diag, U, W_start, Delta_0, mu_start, Delta_start):
+    eta_k_alpha = calc_eta_k_alpha(alpha)
+    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_start, mu_start - n_el / 2 * U,
+                                                U * Delta_start,
+                                                Delta_0, t_diag, eta_k_alpha)
+    return -1.0/N * sum(1.0/ek * real(dBk_dalpha(Delta_0, alpha) * bk.conjugate()) * tk)
+
+
+
+#
+# # gradient test
+#
+#
+# W_start =  0.08671810163881492
+# Delta_0 =  0.047296126586444186
+# mu_start =  -2.2957433627913906
+# lamda3 =  0.012044197447360891
+# n_el =  0.4
+# Delta_start =  0.05211418879043883
+# lamda =  10.0
+# U =  8.263157894736842
+# alpha = 0.24
+# t_diag = 0.0
+#
+# # compare the energy gradient with the numerical gradient
+# print('W_start = ', W_start)
+# print('Delta_s_start = ', Delta_0)
+# print('mu_start = ', mu_start)
+# print('lamda3 = ', U*Delta_start)
+# print('n_el = ', n_el)
+# print('Delta_start = ', Delta_start)
+# print('lamda = ', lamda)
+# print('U = ', U)
+# print('alpha =', alpha)
+#
+# print('gradient = ',
+#       d_HF_energy_d_alpha(alpha, n_el, t_diag, U, W_start, Delta_0, mu_start, Delta_start))
+# h = 1.0e-6
+# E_s_left = HF_calc_energy(alpha+h, n_el, t_diag, U, W_start, Delta_0, mu_start, Delta_start)
+# E_s_right = HF_calc_energy(alpha-h, n_el, t_diag, U, W_start, Delta_0, mu_start, Delta_start)
+#
+#
+# numeric_grad_E = (E_s_left - E_s_right) / (2.0 * h)
+# print('numeric_grad_E = ', numeric_grad_E)
+#
+# exit(0)
 
 
 
@@ -405,28 +349,12 @@ def gradient_of_Energy_sid(EPD, W, Delta_s, Delta_d, mu, lamda3, n, Delta, lamda
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-HF_result_s = zeros(3, dtype = float)
-HF_result_d = zeros(3, dtype = float)
 HF_result_sid = zeros(3, dtype = float)
 
 print('U_array = ', U_array)
 print('n_el_array = ', n_el_array)
 
-symmetries = ['s', 'd', 'sid']
+symmetries = ['sid']
 
 
 if calc_stuff:
@@ -447,120 +375,87 @@ if calc_stuff:
                     if U==U_array[0] and t_diag==t_prime_array[0]:
                         mu_start = -2.0
                         W_start = 0.1
-                        Delta_s_start = 0.1
-                        Delta_d_start = 0.1
-                        Delta_start = 0.1
-                    elif (U > U_array[0] or t_diag < t_prime_array[0]) and symmetry=='s':
-                        mu_start = HF_result_s[3]
-                        W_start = HF_result_s[0]
-                        Delta_s_start = HF_result_s[1]
-                        Delta_start = HF_result_s[2]
-                    elif (U > U_array[0] or t_diag < t_prime_array[0]) and symmetry=='d':
-                        mu_start = HF_result_d[3]
-                        W_start = HF_result_d[0]
-                        Delta_d_start = HF_result_d[1]
-                        Delta_start = 0.0
-                    elif (U > U_array[0] or t_diag < t_prime_array[0]) and symmetry=='sid':
-                        mu_start = HF_result_sid[4]
-                        W_start = HF_result_sid[0]
-                        Delta_s_start = HF_result_sid[1]
-                        Delta_d_start = HF_result_sid[2]
-                        Delta_start = HF_result_sid[3]
+                        Delta_0_start = 0.1
+                        Delta_start = 0.2
+                        alpha = 0.0
+
+                    elif (U != U_array[0] or t_diag != t_prime_array[0]) and symmetry=='sid':
+                        mu_start = HF_results[3]
+                        W_start = HF_results[0]
+                        Delta_0_start = HF_results[1]
+                        Delta_start = HF_results[2]
+                        alpha = array(alpha_new)
+
+
 
                     n = array(n_el)
 
                     K = 1.0
 
+                    acc_alpha = 1.0e-3
+                    Delta_alpha = 1.0
+                    damping_fac = 0.5
+                    HF_cnt = 0
 
-                    if symmetry == 's':
-                        #bounds_array = ([-1.0, -1.0, -1.0, -4.0], [1.0, 1.0, 1.0, 4.0])
-                        x_start = array([W_start, Delta_s_start, Delta_start, mu_start])
-                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_s, x_start, args=(n_el, t_diag, K, U))#,
-                                                          #bounds = bounds_array)
-                        #x_result = optimize.root(exp_fct_minus_exp_vals_s, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
+                    if symmetry == 'sid':
+                        while Delta_alpha > acc_alpha:
+                            #bounds_array = ([-1.0, -1.0, -1.0, -1.0, -4.0], [1.0, 1.0, 1.0, 1.0, 4.0])
+                            x_start = array([W_start, Delta_0_start, Delta_start, mu_start])
+                            eta_k_alpha = calc_eta_k_alpha(alpha)
+                            x_result = optimize.least_squares(exp_fct_minus_exp_vals_sid, x_start,
+                                                              args=(n_el, t_diag, K, U, eta_k_alpha, alpha))
+                            #print('x_result: ', x_result)
+                            #exit()
+                            # x_result = optimize.root(exp_fct_minus_exp_vals_sid, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
 
+                            W_start = x_result.x[0]
+                            Delta_0_start = x_result.x[1]
+                            Delta_start = x_result.x[2]
+                            mu_start = x_result.x[3]
 
-                        W_start = x_result.x[0]
-                        Delta_s_start = x_result.x[1]
-                        Delta_start = x_result.x[2]
-                        mu_start = x_result.x[3]
-
-                        ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(1.0, W_start, mu_start - n_el / 2 * U, U * Delta_start,
-                                                                 Delta_s_start, t_diag)
-                        HF_result_s = array([W_start, Delta_s_start, Delta_start, mu_start])
-                        HF_energy_s = real((n_el - 1.0) * mu_start + 1.0 / N * sum(- ek * tk) - 4.0 * V1 * (
-                                abs(Delta_s_start) ** 2 - abs(
-                            W_start) ** 2) - U * Delta_start ** 2 + n_el / 2 * U - U * n_el ** 2 / 4)
-
-
-                    elif symmetry == 'd':
-                        #bounds_array = ([-1.0, -1.0, -6.0], [1.0, 1.0, 4.0])
-                        x_start = array([W_start, Delta_d_start, mu_start])
-                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U)) #, bounds = bounds_array)
-
-                        # x_result = optimize.root(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
-
-                        W_start = x_result.x[0]
-                        Delta_d_start = x_result.x[1]
-                        mu_start = x_result.x[2]
-                        #print('W_start = ', W_start, 'Delta_d_start = ', Delta_d_start, 'mu_start = ', mu_start, 'Delta_start = ', Delta_start)
-
-                        ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(1.0, W_start, mu_start - n_el / 2 * U, 0.0,
-                                                                 Delta_d_start, t_diag)
-                        HF_result_d = array([W_start, Delta_d_start, Delta_start, mu_start])
-                        HF_energy_d = (n_el - 1.0) * mu_start + 1.0 / N * sum(- ek * tk) - 4.0 * V1 * (
-                                abs(Delta_d_start) ** 2 - abs(
-                            W_start) ** 2) + n_el / 2 * U - U * n_el ** 2 / 4
+                            energy_minimization = optimize.minimize_scalar(HF_calc_energy, alpha, args=(
+                                n_el, t_diag, U, W_start, Delta_0_start, mu_start, Delta_start), bounds=(0.0, 0.5))
 
 
+                            alpha_new = energy_minimization.x
+                            Delta_alpha = abs(alpha_new - alpha)
+                            alpha = array(alpha_new)*damping_fac + (1.0 - damping_fac)*alpha
+                            #print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
 
-                    elif symmetry == 'sid':
-                        #bounds_array = ([-1.0, -1.0, -1.0, -1.0, -4.0], [1.0, 1.0, 1.0, 1.0, 4.0])
-                        x_start = array([W_start, Delta_s_start, Delta_d_start, Delta_start, mu_start])
-                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_sid, x_start,
-                                                          args=(n_el, t_diag, K, U))
-                        # x_result = optimize.root(exp_fct_minus_exp_vals_sid, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
+                            HF_cnt += 1
 
-                        W_start = x_result.x[0]
-                        Delta_s_start = x_result.x[1]
-                        Delta_d_start = x_result.x[2]
-                        Delta_start = x_result.x[3]
-                        mu_start = x_result.x[4]
-                        # print('W_start = ', W_start, 'Delta_s_start = ', Delta_s_start, 'Delta_d_start = ', Delta_d_start, 'mu_start = ', mu_start, 'Delta_start = ', Delta_start)
-
-                        ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(1.0, W_start, mu_start - n_el / 2 * U,
-                                                                    U * Delta_start,
-                                                                    Delta_s_start, Delta_d_start, t_diag)
-                        HF_result_sid = array([W_start, Delta_s_start, Delta_d_start, Delta_start, mu_start])
-                        HF_energy_sid = real((n_el - 1.0) * mu_start + 1.0 / N * sum(- ek * tk) - 4.0 * V1 * (
-                                abs(Delta_s_start) ** 2 + abs(Delta_d_start) ** 2 - abs(
-                            W_start) ** 2) - U * Delta_start ** 2 + n_el / 2 * U - U * n_el ** 2 / 4)
+                            if HF_cnt== 10:
+                                #print('500 iterations reached!', ' Delta_alpha: ', Delta_alpha, ', alpha: ', alpha)
+                                alpha = 0.25
+                                damping_fac= 0.01
+                                print('HF_cnt: ', HF_cnt)
+                                print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
+                            if HF_cnt==20:
+                                alpha = 0.5
+                                damping_fac = 0.001
+                                print('HF_cnt: ', HF_cnt)
+                                print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
+                            if HF_cnt == 1000:
+                                damping_fac = 0.00001
+                                print('HF_cnt: ', HF_cnt)
+                                print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
+                                raise ValueError
 
 
                     else:
                         raise ValueError
+                    HF_results = array([W_start, Delta_0_start, Delta_start, mu_start])
 
 
                 if len(U_array) > 1:
-                    all_Energies_HF[n_el_array_index, U_index, 0] = HF_energy_s
-                    all_Energies_HF[n_el_array_index, U_index, 1] = HF_energy_d
-                    all_Energies_HF[n_el_array_index, U_index, 2] = HF_energy_sid
+                    all_Energies_HF[n_el_array_index, U_index, 0] = energy_minimization.fun
                 elif len(t_prime_array) > 1:
-                    all_Energies_HF[n_el_array_index, t_diag_index, 0] = HF_energy_s
-                    all_Energies_HF[n_el_array_index, t_diag_index, 1] = HF_energy_d
-                    all_Energies_HF[n_el_array_index, t_diag_index, 2] = HF_energy_sid
+                    all_Energies_HF[n_el_array_index, t_diag_index, 0] = energy_minimization.fun
 
-                smallest_HF_energy = argmin(array([HF_energy_s, HF_energy_d, HF_energy_sid]))
+                smallest_HF_energy = energy_minimization.fun
 
-                if abs(HF_energy_sid - HF_energy_d) < s_d_sid_transition_accuracy and HF_energy_d < HF_energy_s:
-                    phase_diagramm_HF[n_el_array_index, U_index] = 1
-                    t_prime_phase_diagramm_HF[n_el_array_index, t_diag_index] = 1
-                elif abs(HF_energy_sid - HF_energy_s) < s_d_sid_transition_accuracy and HF_energy_s < HF_energy_d:
-                    phase_diagramm_HF[n_el_array_index, U_index] = 0
-                    t_prime_phase_diagramm_HF[n_el_array_index, t_diag_index] = 0
-                else:
-                    phase_diagramm_HF[n_el_array_index, U_index] = argmin(array([HF_energy_s, HF_energy_d, HF_energy_sid]))
-                    t_prime_phase_diagramm_HF[n_el_array_index, t_diag_index] = argmin(array([HF_energy_s, HF_energy_d, HF_energy_sid]))
+                phase_diagramm_HF[n_el_array_index, U_index] = array(alpha_new)
+                t_prime_phase_diagramm_HF[n_el_array_index, t_diag_index] = array(alpha_new)
 
                 # if phase_diagramm_HF[n_el_array_index, U_index] == 0:
                 #     print('s-symmetry is the lowest energy solution')
@@ -893,8 +788,8 @@ if calc_stuff:
                     print('\n')
                 else:
                     print('t_diag = ', round(t_diag, 2), ', n_el = ', round(n_el, 2), ', U = ', round(U, 2), ':   HF symmetry: ', phase_diagramm_HF[n_el_array_index, U_index])
-                    print('HF energies: ', HF_energy_s, HF_energy_d, HF_energy_sid)
-                    print('HF results: ', HF_result_s, HF_result_d, HF_result_sid)
+                    print('HF energy: ', smallest_HF_energy)
+                    print('HF results: ', HF_results)
                     # print('\n')
                     #
 
@@ -938,9 +833,7 @@ if len(U_array) > 1:
 
     fig, (ax1, ax2) = subplots(2)
 
-    ax1.plot(U_array, all_Energies_HF[indx, :, 0], 'r*-', label='s-symmetry')
-    ax1.plot(U_array, all_Energies_HF[indx, :, 1], 'g*-', label='d-symmetry')
-    ax1.plot(U_array, all_Energies_HF[indx, :, 2], 'b*-', label='s+id-symmetry')
+    ax1.plot(U_array, phase_diagramm_HF[indx, :], 'r*-', label='s-symmetry')
 
     ax1.set_title('Hartree-Fock, n = ' + str(n_el_array[indx]), fontsize=fs)
     ax1.set_xlabel(r'$U/t$', fontsize=fs)
@@ -950,8 +843,7 @@ if len(U_array) > 1:
     ax1.grid()
 
     ax2.plot(U_array, all_Energies_GA[indx, :, 0], 'r*-', label='s-symmetry')
-    ax2.plot(U_array, all_Energies_GA[indx, :, 1], 'g*-', label='d-symmetry')
-    ax2.plot(U_array, all_Energies_GA[indx, :, 2], 'b*-', label='s+id-symmetry')
+
     ax2.set_title('Gutzwiller, n = ' + str(n_el_array[indx]), fontsize=fs)
     ax2.set_xlabel(r'$U/t$', fontsize=fs)
     ax2.set_ylabel(r'energy $E$', fontsize=fs)
@@ -1062,7 +954,7 @@ if len(U_array)>1 and len(n_el_array)>1:
 
     subplot(211)
     ylim(U_array[0], U_array[-1])
-    pcolormesh(n_el_array, U_array+dU/2, phase_diagramm_HF.T)
+    contourf(phase_diagramm_HF, levels=50)
     title('Hartree-Fock', fontsize=fs)
     xlabel(r'electron density $n$', fontsize=fs, loc = 'right')
     ylabel(r'$U/t$', fontsize=fs)
