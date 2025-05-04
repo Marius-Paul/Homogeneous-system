@@ -21,9 +21,9 @@ min_noi = 0
 #U = 0.0 # should take values like 4, 8, 12
 
 #n_el = 0.6
-U_array = linspace(0.0, 0.2, 3)
-t_prime_array = linspace(0.0, 1.0, 1)      # only do it for ONE U (len(U_array)=1)
-n_el_array = linspace(0.8, 0.90, 21)
+U_array = linspace(0.0, 8.0, 17)  # only do it for ONE t_diag (len(t_prime_array)=1)
+t_prime_array = linspace(0.0, -1.0, 1)      # only do it for ONE U (len(U_array)=1)
+n_el_array = linspace(0.1, 0.9, 41)
 
 phase_diagramm_HF = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
 phase_diagramm_time_dependent_GA = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
@@ -114,21 +114,21 @@ def calc_n(Ak, Ek, Tk):
     return 1.0 - 1.0/N * sum(Ak/Ek*Tk)
 
 
-def calc_Delta_0(Bk, Ek, Tk, alpha):
-    return -c*sum((gamma_ks_matrix*cos(pi*alpha)-1j*gamma_kd_matrix*sin(pi*alpha))*Bk/Ek*Tk)
+def calc_Delta_0(Bk, Ek, Tk, eta_k_alpha):
+    return -c*sum(eta_k_alpha.conjugate()*Bk/Ek*Tk)
 
 def calc_Delta(Bk, Ek, Tk):
     return -1.0/(2.0*N) * sum(Bk/Ek*Tk)
 
-def calc_W_n_Delta_0_Delta(Ak, Bk, Tk, Ek, eta_k_alpha, alpha):
-    print('egno:', calc_Delta_0(Bk, Ek, Tk, alpha))
-    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_0(Bk, Ek, Tk, alpha), calc_Delta(Bk, Ek, Tk)
+def calc_W_n_Delta_0_Delta(Ak, Bk, Tk, Ek, eta_k_alpha):
+    #print('egno:', calc_Delta_0(Bk, Ek, Tk, alpha))
+    return calc_W(Ak, Ek, Tk), calc_n(Ak, Ek, Tk), calc_Delta_0(Bk, Ek, Tk, eta_k_alpha), calc_Delta(Bk, Ek, Tk)
 
 
 
-def exp_fct_minus_exp_vals_sid(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, alpha):
+def exp_fct_minus_exp_vals_sid(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha):
     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_0_Delta_mu[0], W_Delta_0_Delta_mu[3]  - n_el/2 * U, W_Delta_0_Delta_mu[2]*U, W_Delta_0_Delta_mu[1], t_diag, eta_k_alpha)
-    return real(calc_W_n_Delta_0_Delta(ak, bk, tk, ek, eta_k_alpha, alpha)) - array([W_Delta_0_Delta_mu[0], n_el, W_Delta_0_Delta_mu[1], W_Delta_0_Delta_mu[2]])
+    return real(calc_W_n_Delta_0_Delta(ak, bk, tk, ek, eta_k_alpha)) - array([W_Delta_0_Delta_mu[0], n_el, W_Delta_0_Delta_mu[1], W_Delta_0_Delta_mu[2]])
 
 def calc_eta_k_alpha(alpha):
     return gamma_ks_matrix*cos(pi*alpha) + 1j*gamma_kd_matrix*sin(pi*alpha)
@@ -136,10 +136,10 @@ def calc_eta_k_alpha(alpha):
 
 
 
-def GA_exp_fct_minus_exp_vals_sid(W_Delta_s_Delta_d_Delta_mu, n_el, t_diag, K, U, Jz):
-    lamda_3 = calc_lamda3(Jz, W_Delta_s_Delta_d_Delta_mu[3], U, n_el)
-    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_s_Delta_d_Delta_mu[0], W_Delta_s_Delta_d_Delta_mu[4], lamda_3, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], t_diag)
-    return real(calc_W_n_Delta_0_Delta(ak, bk, tk, ek)) - array([W_Delta_s_Delta_d_Delta_mu[0], n_el, W_Delta_s_Delta_d_Delta_mu[1], W_Delta_s_Delta_d_Delta_mu[2], W_Delta_s_Delta_d_Delta_mu[3]])
+def GA_exp_fct_minus_exp_vals_sid(W_Delta_0_Delta_mu, n_el, t_diag, K, U, Jz, eta_k_alpha):
+    lamda_3 = calc_lamda3(Jz, W_Delta_0_Delta_mu[2], U, n_el)
+    ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_Delta_0_Delta_mu[0], W_Delta_0_Delta_mu[3], lamda_3, W_Delta_0_Delta_mu[1], t_diag, eta_k_alpha)
+    return real(calc_W_n_Delta_0_Delta(ak, bk, tk, ek, eta_k_alpha)) - array([W_Delta_0_Delta_mu[0], n_el, W_Delta_0_Delta_mu[1], W_Delta_0_Delta_mu[2]])
 
 
 
@@ -375,16 +375,16 @@ if calc_stuff:
                     if U==U_array[0] and t_diag==t_prime_array[0]:
                         mu_start = -2.0
                         W_start = 0.1
-                        Delta_0_start = 0.1
-                        Delta_start = 0.2
+                        Delta_0_start = 0.05
+                        Delta_start = 0.1
                         alpha = 0.0
 
-                    elif (U != U_array[0] or t_diag != t_prime_array[0]) and symmetry=='sid':
-                        mu_start = HF_results[3]
-                        W_start = HF_results[0]
-                        Delta_0_start = HF_results[1]
-                        Delta_start = HF_results[2]
-                        alpha = array(alpha_new)
+                    # elif (U != U_array[0] or t_diag != t_prime_array[0]) and symmetry=='sid':
+                    #     mu_start = HF_results[3]
+                    #     W_start = HF_results[0]
+                    #     Delta_0_start = HF_results[1]
+                    #     Delta_start = HF_results[2]
+                    #     alpha = array(alpha_new)
 
 
 
@@ -397,53 +397,55 @@ if calc_stuff:
                     damping_fac = 0.5
                     HF_cnt = 0
 
-                    if symmetry == 'sid':
-                        while Delta_alpha > acc_alpha:
-                            #bounds_array = ([-1.0, -1.0, -1.0, -1.0, -4.0], [1.0, 1.0, 1.0, 1.0, 4.0])
-                            x_start = array([W_start, Delta_0_start, Delta_start, mu_start])
-                            eta_k_alpha = calc_eta_k_alpha(alpha)
-                            x_result = optimize.least_squares(exp_fct_minus_exp_vals_sid, x_start,
-                                                              args=(n_el, t_diag, K, U, eta_k_alpha, alpha))
-                            #print('x_result: ', x_result)
-                            #exit()
-                            # x_result = optimize.root(exp_fct_minus_exp_vals_sid, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
+                    while Delta_alpha > acc_alpha:
+                        #bounds_array = ([-1.0, -1.0, -1.0, -1.0, -4.0], [1.0, 1.0, 1.0, 1.0, 4.0])
+                        x_start = array([W_start, Delta_0_start, Delta_start, mu_start])
+                        eta_k_alpha = calc_eta_k_alpha(alpha)
+                        x_result = optimize.least_squares(exp_fct_minus_exp_vals_sid, x_start,
+                                                          args=(n_el, t_diag, K, U, eta_k_alpha))
+                        #print('x_result: ', x_result)
+                        #exit()
+                        # x_result = optimize.root(exp_fct_minus_exp_vals_sid, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
 
-                            W_start = x_result.x[0]
-                            Delta_0_start = x_result.x[1]
-                            Delta_start = x_result.x[2]
-                            mu_start = x_result.x[3]
+                        W_start = x_result.x[0]*damping_fac + (1.0 - damping_fac)*W_start
+                        Delta_0_start = x_result.x[1]*damping_fac + (1.0 - damping_fac)*Delta_0_start
+                        Delta_start = x_result.x[2]*damping_fac + (1.0 - damping_fac)*Delta_start
+                        mu_start = x_result.x[3]
 
-                            energy_minimization = optimize.minimize_scalar(HF_calc_energy, alpha, args=(
-                                n_el, t_diag, U, W_start, Delta_0_start, mu_start, Delta_start), bounds=(0.0, 0.5))
-
-
-                            alpha_new = energy_minimization.x
-                            Delta_alpha = abs(alpha_new - alpha)
-                            alpha = array(alpha_new)*damping_fac + (1.0 - damping_fac)*alpha
-                            #print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
-
-                            HF_cnt += 1
-
-                            if HF_cnt== 10:
-                                #print('500 iterations reached!', ' Delta_alpha: ', Delta_alpha, ', alpha: ', alpha)
-                                alpha = 0.25
-                                damping_fac= 0.01
-                                print('HF_cnt: ', HF_cnt)
-                                print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
-                            if HF_cnt==20:
-                                alpha = 0.5
-                                damping_fac = 0.001
-                                print('HF_cnt: ', HF_cnt)
-                                print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
-                            if HF_cnt == 1000:
-                                damping_fac = 0.00001
-                                print('HF_cnt: ', HF_cnt)
-                                print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
-                                raise ValueError
+                        energy_minimization = optimize.minimize_scalar(HF_calc_energy, alpha, args=(
+                            n_el, t_diag, U, W_start, Delta_0_start, mu_start, Delta_start), bounds=(0.0, 0.5))
 
 
-                    else:
-                        raise ValueError
+                        alpha_new = energy_minimization.x
+                        Delta_alpha = abs(alpha_new - alpha)
+                        alpha = array(alpha_new)*damping_fac + (1.0 - damping_fac)*alpha
+                        #print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
+
+                        HF_cnt += 1
+
+                        if HF_cnt == 20:
+                            mu_start = -2.0
+                            W_start = 0.05
+                            Delta_0_start = 0.05
+                            Delta_start = 0.1
+                            alpha = 0.25
+                            print('HF_cnt: ', HF_cnt)
+                            print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
+
+                        if HF_cnt == 40:
+                            mu_start = -2.0
+                            W_start = 0.05
+                            Delta_0_start = 0.05
+                            Delta_start = 0.1
+                            alpha = 0.5
+                            print('HF_cnt: ', HF_cnt)
+                            print('alpha = ', alpha, ', Delta alpha: ', Delta_alpha)
+
+                        if HF_cnt == 70:
+                            print('HF_cnt: ', HF_cnt, ', alpha = ', alpha, ', Delta alpha: ', Delta_alpha, ', mu = ', mu_start, ', W = ', W_start, ', Delta_0 = ', Delta_0_start, ', Delta = ', Delta_start)
+                            #raise ValueError
+                            break
+
                     HF_results = array([W_start, Delta_0_start, Delta_start, mu_start])
 
 
@@ -485,24 +487,12 @@ if calc_stuff:
                     # time dependent GA
                     for symmetry in symmetries:
 
-                        if symmetry=='s':
-                            mu_start = HF_result_s[3]
-                            W_start = HF_result_s[0]
-                            Delta_s_start = HF_result_s[1]
-                            Delta_start = HF_result_s[2]
-                        elif symmetry=='d':
-                            mu_start = HF_result_d[3]
-                            W_start = HF_result_d[0]
-                            Delta_d_start = HF_result_d[1]
-                            Delta_start = 0.0
-                            J = calc_J(Delta_start, Jz)
-                            #lamda3 = 0.0  # calc_lamda3(n, Delta_start, U)
-                        elif symmetry=='sid':
-                            mu_start = HF_result_sid[4]
-                            W_start = HF_result_sid[0]
-                            Delta_s_start = HF_result_sid[1]
-                            Delta_d_start = HF_result_sid[2]
-                            Delta_start = HF_result_sid[3]
+
+                        mu_start = HF_results[3]
+                        W_start = HF_results[0]
+                        Delta_0_start = HF_results[1]
+                        Delta_start = HF_results[2]
+                        alpha = 0.0
 
 
                         D_start = n_el ** 2 / 4 - 0.5 * (n_el - 1.0) + sign(n_el - 1.0) * sqrt((0.5 * (n_el - 1.0)) ** 2 + Delta_start ** 2) + Delta_start**2
@@ -525,157 +515,43 @@ if calc_stuff:
                         # parameters for minimization of the slave boson conditions
                         lamda_1_2 = array([1.0e4, 1.0e4])
                         alpha_GA = 0.5/(U+1.0)
-                        if len(t_prime_array) > 1:
-                            alpha_GA = 0.5 / (-t_diag + 1.0)
-                        mu_fac = 0.5
 
                         leftbound = 1.0e-6  # for low U a higher leftbound works better! (e.g. for U=4.0 use leftbound=1.0e-6)
                         cnt_GA = 0
-                        max_noi = 2000
-                        ema = 1.0e-8  # accuracy for the energy minimization
+
+                        ema = 1.0e-12  # accuracy for the energy minimization
+                        damping_fac = 0.5
 
                         bounds_array = zeros((3, 2), dtype=float)
                         for ii in range(3):
                             bounds_array[ii] = (leftbound, 1.0)
 
                         while delta_EPD > 1.0e-8 or conditions_1 > accuracy_conditions or conditions_2 > accuracy_conditions or cnt_GA < min_noi:
-                            if symmetry == 's':
-                                R = calc_R(*EPD_start)
-                                K = R ** 2
-
-                                #lamda3 = calc_lamda3(Jz, Delta_start, U, lamda3)
-
-                                bounds_array_exp = ([0.0, 0.0, 0.0, -4.0], [1.0, 1.0, 1.0, 4.0])
-                                x_start = array([W_start, Delta_s_start, Delta_start, mu_start])
-                                x_result = optimize.least_squares(GA_exp_fct_minus_exp_vals_s, x_start,
-                                                                  args=(n_el, t_diag, K, U, Jz),
-                                                                  bounds=bounds_array_exp)
-                                # x_result = optimize.root(exp_fct_minus_exp_vals_s, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
-
-                                W_start = x_result.x[0]
-                                Delta_s_start = x_result.x[1]
-                                Delta_start = x_result.x[2]
-                                mu_start = x_result.x[3]
 
 
-
-                                # for cdcnt in range(1):
-                                #     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s(K, W_start, mu_start, lamda3, Delta_s_start, t_diag)
-                                #
-                                #     W, n, Delta_s, Delta = calc_W_n_Delta_s_Delta(ak, bk, tk, ek)
-                                #     mu = mu_start + mu_fac * (n_el - n)
-                                #
-                                #     delta_mu = abs((mu - mu_start) / mu)
-                                #     mu_start = array(mu)
-                                #     delta_x = linalg.norm(array([(W - W_start) / W]))
-                                #
-                                #     #if cnt_GA%10 == 0:
-                                #     #    print('cnt_GA = ', cnt_GA, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
-                                #     #    print('W = ', W, ', Delta_s = ', Delta_s, ', Delta = ', Delta, ', mu = ', mu_start)
-                                #
-                                #     W_start = alpha_GA * W + (1.0 - alpha_GA) * W_start
-                                #     Delta_s_start = alpha_GA * Delta_s + (1.0 - alpha_GA) * Delta_s_start
-                                #     Delta_start = alpha_GA * Delta + (1.0 - alpha_GA) * Delta_start
-
-                                J = calc_J(Delta_start, Jz)
-
-
-
-
-
-
-                                lamda3 = calc_lamda3(Jz, Delta_start, U, n_el)
-                                #print('lamda3 = ', lamda3, U*Delta_start, ', K = ', K, ', Delta_start = ', Delta_start)
-                                energy_minimization = optimize.minimize(calc_Energy_s, EPD_start, args=(
-                                    W_start, Delta_s_start, mu_start, lamda3, n_el, Delta_start, lamda, U, Jz, J, t_diag), method='L-BFGS-B', options={'disp': False, 'maxiter': 1000}, jac = gradient_of_Energy_s,
-                                                                        bounds=bounds_array, tol=ema)
-
-
-                                # Jz, J = calc_Jz_J(n, Delta_start)
-                                # lamda3 = calc_lamda3(n, Delta_start, U)
-                                # # print('lamda3 = ', lamda3, U*Delta_start)
-                                # energy_minimization = optimize.minimize(calc_Energy_s, EPD_start, args=(
-                                #     W, Delta_s, mu, lamda3, n, Delta, lamda, U, Jz, J), method='L-BFGS-B',
-                                #                                         options={'disp': False, 'maxiter': 1000},
-                                #                                         jac=gradient_of_Energy_s,
-                                #                                         bounds=bounds_array, tol=ema)
-
-
-                            elif symmetry == 'd':
-                                R = calc_R(*EPD_start)
-                                K = R**2
-                                # ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_d(K, W_start, mu_start, lamda3, Delta_d_start, t_diag)
-                                # W, n, Delta_d, Delta = calc_W_n_Delta_d_Delta(ak, bk, tk, ek)
-                                # mu = mu_start + mu_fac * (n_el - n)
-                                # delta_mu = abs((mu - mu_start) / mu)
-                                # mu_start = array(mu)
-                                # delta_x = linalg.norm(array([(W - W_start) / W]))
-                                # #if cnt_GA % 10 == 0:
-                                # #    print('cnt_GA = ', cnt_GA, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
-                                # #    print('W = ', W, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
-                                #
-                                # W_start = alpha_GA * W + (1.0 - alpha_GA) * W_start
-                                # Delta_d_start = alpha_GA * Delta_d + (1.0 - alpha_GA) * Delta_d_start
-                                # Delta_start = alpha_GA * Delta + (1.0 - alpha_GA) * Delta_start
-
-                                bounds_array_exp = ([0.0, 0.0, -4.0], [1.0, 1.0, 4.0])
-                                x_start = array([W_start, Delta_d_start, mu_start])
-                                x_result = optimize.least_squares(GA_exp_fct_minus_exp_vals_d, x_start,
-                                                                  args=(n_el, t_diag, K, U, Jz),
-                                                                  bounds=bounds_array_exp)
-                                # x_result = optimize.root(exp_fct_minus_exp_vals_d, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
-
-                                W_start = x_result.x[0]
-                                Delta_d_start = x_result.x[1]
-                                mu_start = x_result.x[2]
-
-                                energy_minimization = optimize.minimize(calc_Energy_d, EPD_start, args=(
-                                    W_start, Delta_d_start, mu_start, lamda3, n_el, Delta_start, lamda, U, Jz, J, t_diag), method='L-BFGS-B', jac = gradient_of_Energy_d,
-                                                                        options={'disp': False, 'maxiter': 1000},
-                                                                        bounds=bounds_array, tol=ema)
-
-
-
-                            elif symmetry == 'sid':
+                            if symmetry == 'sid':
                                 R = calc_R(*EPD_start)
 
-                                #lamda3 = calc_lamda3(Jz, Delta_start, U, lamda3)
                                 K = R**2
 
-                                # for cdcnt in range(1):
-                                #     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start, lamda3, Delta_s_start, Delta_d_start, t_diag)
-                                #     W, n, Delta_s, Delta_d, Delta = calc_W_n_Delta_s_Delta_d_Delta(ak, bk, tk, ek)
-                                #
-                                #     mu = mu_start + mu_fac * (n_el - n)
-                                #     delta_mu = abs((mu - mu_start) / mu)
-                                #     mu_start = array(mu)
-                                #     delta_x = linalg.norm(array([(W - W_start) / W]))
-                                #     #if cnt_GA % 10 == 0:
-                                #     #    print('cnt_GA = ', cnt_GA, ', delta_mu = ', delta_mu, ', delta_x = ', delta_x)
-                                #     #    print('W = ', W,', Delta_s = ', Delta_s, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
-                                #
-                                #     W_start = alpha_GA * W + (1.0 - alpha_GA) * W_start
-                                #     Delta_s_start = alpha_GA * Delta_s + (1.0 - alpha_GA) * Delta_s_start
-                                #     Delta_d_start = alpha_GA * Delta_d + (1.0 - alpha_GA) * Delta_d_start
-                                #     Delta_start = alpha_GA * Delta + (1.0 - alpha_GA) * Delta_start
-
+                                eta_k_alpha = calc_eta_k_alpha(alpha)
                                 bounds_array_exp = ([0.0, 0.0, 0.0, 0.0, -4.0], [1.0, 1.0, 1.0, 1.0, 4.0])
-                                x_start = array([W_start, Delta_s_start, Delta_d_start, Delta_start, mu_start])
+                                x_start = array([W_start, Delta_0_start, Delta_start, mu_start])
                                 x_result = optimize.least_squares(GA_exp_fct_minus_exp_vals_sid, x_start,
-                                                                  args=(n_el, t_diag, K, U, Jz),
+                                                                  args=(n_el, t_diag, K, U, Jz, eta_k_alpha),
                                                                   bounds=bounds_array_exp)
+
                                 # x_result = optimize.root(exp_fct_minus_exp_vals_sid, x_start, args=(n_el, t_diag, K, U), method = 'hybr')
 
                                 W_start = x_result.x[0]
-                                Delta_s_start = x_result.x[1]
-                                Delta_d_start = x_result.x[2]
-                                Delta_start = x_result.x[3]
-                                mu_start = x_result.x[4]
+                                Delta_0_start = x_result.x[1]
+                                Delta_start = x_result.x[2]
+                                mu_start = x_result.x[3]
 
                                 J = calc_J(Delta_start, Jz)
                                 lamda3 = calc_lamda3(Jz, Delta_start, U, n_el)
                                 energy_minimization = optimize.minimize(calc_Energy_sid, EPD_start, args=(
-                                    W_start, Delta_s_start, Delta_d_start, mu_start, lamda3, n_el, Delta_start, lamda, U, Jz, J, t_diag), method='L-BFGS-B', jac = gradient_of_Energy_sid,
+                                    W_start, Delta_0_start, mu_start, lamda3, n_el, Delta_start, lamda, U, Jz, J, t_diag), method='L-BFGS-B', jac = gradient_of_Energy_sid,
                                                                         options={'disp': False, 'maxiter': 1000},
                                                                         bounds=bounds_array, tol=ema)
 
@@ -716,30 +592,7 @@ if calc_stuff:
                         #       (n - n_el) / n_el, ', energy =', energy_minimization.fun, ', conditions:',
                         #       conditions_1, conditions_2, '\n')
 
-                        if symmetry == 's':
-                            #J = calc_J(Delta_start, Jz)
-                            #lamda3 = calc_lamda3(Jz, Delta_start, U, lamda3)
-
-                            GA_energy_s = calc_Energy_s(EPD_start, W_start, Delta_s_start, mu_start, lamda3, n, Delta_start, 0.0, U, Jz, J, t_diag)
-                            GA_result_s = array([W_start, Delta_s_start, Delta_start, mu_start])
-
-                            # print('cnt_GA =', cnt_GA, ', s-symmetry results:')
-                            # print('GA_energy_s = ', GA_energy_s)
-                            # print('W = ', W, ', Delta_s = ', Delta_s, ', Delta = ', Delta, ', mu = ', mu_start)
-                            # print('EPD: ', EPD_start, '\n')
-
-                        elif symmetry == 'd':
-                            #J = calc_J(Delta_start, Jz)
-
-                            GA_energy_d = calc_Energy_d(EPD_start, W_start, Delta_d_start, mu_start, 0.0, n, Delta_start, 0.0, U, Jz, J, t_diag)
-                            GA_result_d = array([W_start, Delta_d_start, Delta_start, mu_start])
-
-                            # print('cnt_GA =', cnt_GA, ', d-symmetry results:')
-                            # print('GA_energy_d = ', GA_energy_d)
-                            # print('W = ', W, ', Delta_d = ', Delta_d, ', Delta = ', Delta, ', mu = ', mu_start)
-                            # print('EPD: ', EPD_start, '\n')
-
-                        elif symmetry == 'sid':
+                        if symmetry == 'sid':
                             #J = calc_J(Delta_start, Jz)
                             #lamda3 = calc_lamda3(Jz, Delta_start, U, lamda3)
 
@@ -788,8 +641,8 @@ if calc_stuff:
                     print('\n')
                 else:
                     print('t_diag = ', round(t_diag, 2), ', n_el = ', round(n_el, 2), ', U = ', round(U, 2), ':   HF symmetry: ', phase_diagramm_HF[n_el_array_index, U_index])
-                    print('HF energy: ', smallest_HF_energy)
-                    print('HF results: ', HF_results)
+                    #print('HF energy: ', smallest_HF_energy)
+                    #print('HF results: ', HF_results)
                     # print('\n')
                     #
 
@@ -859,9 +712,7 @@ if len(t_prime_array) > 1:
 
     fig, (ax1, ax2) = subplots(2)
 
-    ax1.plot(t_prime_array, all_Energies_HF[indx, :, 0], 'r*-', label='s-symmetry')
-    ax1.plot(t_prime_array, all_Energies_HF[indx, :, 1], 'g*-', label='d-symmetry')
-    ax1.plot(t_prime_array, all_Energies_HF[indx, :, 2], 'b*-', label='s+id-symmetry')
+    ax1.plot(t_prime_array, all_Energies_HF[indx, :], 'r*-', label='s-symmetry')
 
     ax1.set_title('Hartree-Fock, n = ' + str(n_el_array[indx]), fontsize=fs)
     ax1.set_xlabel(r'$t \prime/t$', fontsize=fs)
@@ -870,9 +721,7 @@ if len(t_prime_array) > 1:
     ax1.legend(loc='upper right', fontsize=fs)
     ax1.grid()
 
-    ax2.plot(t_prime_array, all_Energies_GA[indx, :, 0], 'r*-', label='s-symmetry')
-    ax2.plot(t_prime_array, all_Energies_GA[indx, :, 1], 'g*-', label='d-symmetry')
-    ax2.plot(t_prime_array, all_Energies_GA[indx, :, 2], 'b*-', label='s+id-symmetry')
+    ax2.plot(t_prime_array, all_Energies_GA[indx, :], 'r*-', label='s-symmetry')
     ax2.set_title('Gutzwiller, n = ' + str(n_el_array[indx]), fontsize=fs)
     ax2.set_xlabel(r'$t \prime/t$', fontsize=fs)
     ax2.set_ylabel(r'energy $E$', fontsize=fs)
@@ -893,9 +742,9 @@ if len(t_prime_array)>1 and len(n_el_array)>1:
     figure()
 
     subplot(211)
-    print(t_prime_phase_diagramm_HF)
-    ylim(t_prime_array[0], t_prime_array[-1])
-    pcolormesh(n_el_array, t_prime_array+dt_diag/2, t_prime_phase_diagramm_HF.T)
+    #print(t_prime_phase_diagramm_HF)
+    #ylim(t_prime_array[0], t_prime_array[-1])
+    contourf(n_el_array, t_prime_array + dt_diag / 2, t_prime_phase_diagramm_HF.T, levels=3)
     title('Hartree-Fock', fontsize=fs)
     xlabel(r'electron density $n$', fontsize=fs, loc = 'right')
     ylabel(r'$t\prime /t$', fontsize=fs)
@@ -954,7 +803,8 @@ if len(U_array)>1 and len(n_el_array)>1:
 
     subplot(211)
     ylim(U_array[0], U_array[-1])
-    contourf(phase_diagramm_HF, levels=50)
+    xlim(n_el_array[0], n_el_array[-1])
+    contourf(n_el_array, U_array+dU/2, phase_diagramm_HF.T, levels=3)
     title('Hartree-Fock', fontsize=fs)
     xlabel(r'electron density $n$', fontsize=fs, loc = 'right')
     ylabel(r'$U/t$', fontsize=fs)
