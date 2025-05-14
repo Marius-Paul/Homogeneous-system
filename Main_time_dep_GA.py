@@ -19,9 +19,9 @@ min_noi = 0
 #U = 0.0 # should take values like 4, 8, 12
 
 #n_el = 0.6
-U_array = linspace(0.0, 8.0, 27)  # only do it for ONE t_diag (len(t_prime_array)=1)
+U_array = linspace(0.0, 8.0, 9)  # only do it for ONE t_diag (len(t_prime_array)=1)
 t_prime_array = linspace(0.0, -1.0, 1)      # only do it for ONE U (len(U_array)=1)
-n_el_array = linspace(0.05, 1.0, 61)
+n_el_array = linspace(0.05, 1.0, 21)
 
 phase_diagramm_HF = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
 phase_diagramm_time_dependent_GA = zeros((len(n_el_array), len(U_array)))   # contains the symmetry for each n_el and U
@@ -147,6 +147,7 @@ def GA_minimizing_routine(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, d
     delta_x = 1.0
     cnt_GA = 0
     lamda = 1.0e4
+    lamda3 = U*Delta_start
     # n = array(n_el)
 
     accuracy_conditions = 1.0e-8
@@ -158,7 +159,7 @@ def GA_minimizing_routine(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, d
     # parameters for minimization of the slave boson conditions
     lamda_1_2 = array([1.0e4, 1.0e4])
 
-    leftbound = 1.0e-7  # for low U a higher leftbound works better! (e.g. for U=4.0 use leftbound=1.0e-6)
+    leftbound = 1.0e-10  # for low U a higher leftbound works better! (e.g. for U=4.0 use leftbound=1.0e-6)
     max_noi = 200
     ema = 1.0e-12  # accuracy for the energy minimization
 
@@ -167,9 +168,8 @@ def GA_minimizing_routine(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, d
         bounds_array[ii] = (leftbound, 1.0)
 
     while delta_x>min_acc or delta_EPD > 1.0e-7 or conditions_1 > accuracy_conditions or conditions_2 > accuracy_conditions or cnt_GA < min_noi:
-
-        Ak, Bk, Ek, Tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start - n_el / 2 * U,
-                                                    Delta_start * U, Delta_0_start, t_diag,
+        Ak, Bk, Ek, Tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start,
+                                                    lamda3, Delta_0_start, t_diag,
                                                     eta_k_alpha)
         W_new, Delta_0_new, Delta_new = calc_W(Ak, Ek, Tk),  calc_Delta_0(Bk, Ek, Tk, eta_k_alpha), calc_Delta(Bk, Ek, Tk)
         delta_x = linalg.norm(array([W_new, Delta_0_new, Delta_new]) - array([W_start, Delta_0_start, Delta_start]))
@@ -180,7 +180,7 @@ def GA_minimizing_routine(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, d
         #print(delta_x, W_start, Delta_0_start, Delta_start, mu_start)
 
         J = calc_J(Delta_start, Jz)
-        lamda3 = calc_lamda3(Jz, GDelta_start, U, n_el)
+        lamda3 = calc_lamda3(Jz, Delta_start, U, n_el)
         DO = calc_DO(EPD_start[2], Jz, J)
 
         energy_minimization = optimize.minimize(calc_Energy_sid, EPD_start, args=(
@@ -190,7 +190,7 @@ def GA_minimizing_routine(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, d
                                                 bounds=bounds_array, tol=ema)
 
         delta_EPD = linalg.norm(energy_minimization.x - EPD_start)
-        # print('delta_EPD = ', delta_EPD)
+        #print('delta_EPD = ', delta_EPD)
         EPD_start = (energy_minimization.x).reshape(3)
 
         if cnt_GA > 5:
@@ -207,7 +207,6 @@ def GA_minimizing_routine(W_Delta_0_Delta_mu, n_el, t_diag, K, U, eta_k_alpha, d
         cnt_GA += 1
         if cnt_GA > max_noi:
             # raise ValueError('No convergence in time dependent GA')
-            # print('HF energy = ', HF_energy, ', GA energy = ', energy_minimization.fun)
             break
 
         conditions_1 = linalg.norm(cond1(EPD_start))
@@ -302,6 +301,7 @@ def calc_Energy_sid(EPD, W, Delta_0, mu, lamda3, n, Delta, lamda, U, Jz, J, t_di
 
 
 def gradient_of_Energy_sid(EPD, W, Delta_0, mu, lamda3, n, Delta, lamda, U, Jz, J, t_diag, eta_k_alpha):
+    R = calc_R(*EPD)
     Ak, Bk, Ek, Tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(calc_R(*EPD)**2, W, mu, lamda3, Delta_0, t_diag, eta_k_alpha)
     return array([dEnergy_dE(Ek, Ak, EPD, R, lamda, t_diag), dEnergy_dP(Ek, Ak, EPD, R, lamda, n, t_diag), dEnergy_dD(Ek, Ak, EPD, R, lamda, U, n, t_diag)]).real
 
@@ -322,7 +322,7 @@ def GA_calc_energy(alpha, n_el, t_diag, U, W_start, Delta_0, mu_start, Delta_sta
     ak, bk, ek, tk = calc_epsk_Ak_Bk_Ek_Tk_s_id(K, W_start, mu_start,
                                                 lamda3,
                                                 Delta_0, t_diag, eta_k_alpha)
-    return real((n_el-1.0)*mu_start + 1.0/N*sum(- ek*tk) - 4.0*V1*(abs(Delta_0)**2 - abs(W_start)**2) - 2.0*real(lamda3.conjugate()*Delta_start) + U*DO + lamda*cond1(EPD)**2 + lamda*cond2(EPD,n)**2)
+    return real((n_el-1.0)*mu_start + 1.0/N*sum(- ek*tk) - 4.0*V1*(abs(Delta_0)**2 - abs(W_start)**2) - 2.0*real(lamda3.conjugate()*Delta_start) + U*DO)
 
 
 
@@ -391,7 +391,7 @@ def solve_GA(U, t_diag, x_start, Jz):
         EPD_start = calc_EPD_start_values(n_el, x_start[indc][2])
         R = calc_R(*EPD_start)
         K = R ** 2
-        J = calc_J(GA_results[2], Jz)
+        J = calc_J(x_start[indc][2], Jz)
         lamda3 = calc_lamda3(Jz, x_start[indc][2], U, n_el)
         DO = calc_DO(EPD_start[2], Jz, J)
         eta_k_alpha = calc_eta_k_alpha(alpha_vec[indc])
@@ -412,7 +412,7 @@ def solve_GA(U, t_diag, x_start, Jz):
     else:
         raise ValueError('No symmetry found!')
 
-    return symmetry
+    return symmetry, x_result_vec
 
 
 
@@ -501,43 +501,43 @@ if calc_stuff:
                 if n_el_array_index == 0:
                     new_x_start_n_el = array(x_start)
 
-
-                all_Energies_HF[n_el_array_index, U_index] = symmetry
+                if len(U_array)>1:
+                    all_Energies_HF[n_el_array_index, U_index] = symmetry
 
                 phase_diagramm_HF[n_el_array_index, U_index] = symmetry
                 t_prime_phase_diagramm_HF[n_el_array_index, t_diag_index] = symmetry
 
                 #plot(alpha_vec, energy_vec)
                 #show()
-
+                print('HF: t_diag = ', round(t_diag, 2), ', n_el = ', round(n_el, 2), ', U = ', round(U, 2),
+                      ':   HF symmetry: ', symmetry, ', HF results: ', x_start)
 
                 if not only_HF:
                     #print('\n')
                     #print('################################################################### Time-dep. Gutzwiller ###################################################################')
 
-                    symmetry = solve_GA(U, t_diag, x_start, Jz)
+                    GA_symmetry, GA_results = solve_GA(U, t_diag, x_start, Jz)
 
                     if len(U_array) > 1:
-                        all_Energies_GA[n_el_array_index, U_index] = GA_energy
+                        all_Energies_GA[n_el_array_index, U_index] = GA_symmetry
                     elif len(t_prime_array) > 1:
-                        all_Energies_GA[n_el_array_index, t_diag_index] = GA_energy
+                        all_Energies_GA[n_el_array_index, t_diag_index] = GA_symmetry
 
-                    phase_diagramm_time_dependent_GA[n_el_array_index, U_index] = GA_alpha_min
-                    t_prime_phase_diagramm_time_dependent_GA[n_el_array_index, t_diag_index] = GA_alpha_min
+                    phase_diagramm_time_dependent_GA[n_el_array_index, U_index] = GA_symmetry
+                    t_prime_phase_diagramm_time_dependent_GA[n_el_array_index, t_diag_index] = GA_symmetry
+
+
 
                     print('GA: t_diag = ', round(t_diag, 2), ', n_el = ', round(n_el, 2), ', U = ', round(U, 2),
-                          ':   GA symmetry: ', symmetry, '\n')
-
-                    print('HF: t_diag = ', round(t_diag, 2), ', n_el = ', round(n_el, 2), ', U = ', round(U, 2),
-                              ':   HF symmetry: ', symmetry)
+                          ':   GA symmetry: ', GA_symmetry, ', GA_results: ', GA_results, '\n')
 
 
 
 
 
-
-    save('Energies_HF', all_Energies_HF)
-    save('Energies_GA', all_Energies_GA)
+    if len(n_el_array)>1:
+        save('Energies_HF', all_Energies_HF)
+        save('Energies_GA', all_Energies_GA)
     savetxt('phase_diagramm_HF.txt', phase_diagramm_HF)
     savetxt('phase_diagramm_time_dependent_GA.txt', phase_diagramm_time_dependent_GA)
 else:
